@@ -87,7 +87,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
         report={report}
         signals={signals}
       >
-        <div className="flex flex-wrap gap-2 print:hidden">
+        <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end print:hidden">
           <Button asChild className="rounded-md font-semibold">
             <a href={`/api/audit/${audit.id}/pdf`}><FileDown className="mr-2 h-4.5 w-4.5" /> PDF</a>
           </Button>

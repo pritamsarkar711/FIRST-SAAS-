@@ -509,3 +509,47 @@ Stage Summary:
 - The site now follows the UXpert design language with the Telenor brand font, coral primary, blue-gray bands, and a theme-aware flat-vector illustration system (8 scenes x light/dark).
 - Sandbox state: no schema changes. DB site.name now "Audit Form". .env: DATABASE_URL, NEXTAUTH_SECRET, AUTH_TRUST_HOST=true (NEXTAUTH_URL intentionally omitted; do not re-add a hardcoded localhost URL).
 - Next priorities: sweep remaining dashboard/manage subpages for small contrast details under the coral palette; /manage login + admin pages styling pass; apply coral/Telenor to PDF header art; consider a monitor-scene illustration on the watchlist page; blog post pages sample-report typography polish; verify Google OAuth only after client keys are configured.
+
+---
+Task ID: 14
+Agent: Z.ai main
+Task: Deep QA (quality/bugs/performance), UXpert design polish, dead-code cleanup, Hostinger Business-plan deployment readiness
+
+Work Log (status assessment first):
+- QA at round start: lint clean, all public routes 200 + auth 307s correct, dev.log clean. Full browser QA (desktop 1366 + mobile 390, light + dark): home, all 8 dashboard pages, all manage pages, report detail, checkout, free site-check end-to-end ("5 of 8 checks passed" against waitbutwhy.com), console clean everywhere.
+
+Bugs found and fixed:
+- DARK-MODE HOME MOCKUP BROKEN: ReportMockup hardcoded bg-white while text used text-foreground, so in dark mode findings rendered as unreadable gray "skeleton" bars (light text on white). Fixed to bg-card + bg-background address pill; verified color-coded findings now render in both themes.
+- REPORT HEADER ACTIONS WRAP: five header buttons wrapped leaving "Print" orphaned mid-line; actions row now right-aligned with tightened labels ("Share report"→"Share", "Copy summary"→"Copy") so all five fit on one row at 1366px.
+- metadataBase fell back to http://localhost:3000 (NEXTAUTH_URL intentionally omitted) which would produce wrong canonical/OG URLs in production; now prefers NEXT_PUBLIC_SITE_URL (same env sitemap.ts already uses).
+- Dev server OOM-killed again during the cleanup recompile; restarted with the documented persistent-spawn procedure (NODE_OPTIONS=--max-old-space-size=1536, dev.log appended via fd).
+
+Performance / dead-code cleanup (user mandate: remove files not asked for):
+- Deleted 35 unused shadcn/ui components (only 13 are imported anywhere: accordion, button, dialog, input, label, select, separator, sheet, skeleton, toast, toaster, toggle, tooltip) after verifying zero references incl. intra-ui imports. Deleted src/hooks/use-mobile.ts (only consumer was the removed sidebar).
+- Deleted non-app artifacts: examples/ (websocket demo), tests/ (platform scripts), download/, tool-results/, public/generated/<old-jobId>/ stale writer images (blog covers verified null in DB; writer recreates per-job dirs at runtime).
+- Telenor Regular + Bold now preloaded in root layout head (crossOrigin anonymous) to cut FOUT; hero-people.svg light/dark already preloaded by the site layout.
+
+Hostinger Business-plan deployment readiness (user: "ready to repose on hostinger shared business plan"):
+- Verified externally via web search + Hostinger KB: Node.js web apps ARE supported on Business Web Hosting and all Cloud plans (Node 18/20/22/24; GitHub-import or zip upload; framework auto-detect with "Other" fallback).
+- prisma/schema.mysql.prisma added: identical to schema.prisma but provider "mysql" + @db.Text/@db.MediumText on all JSON/HTML long-text columns (report, signals, features, instructions, config, meta, message/reply, excerpt/content, input/result/images, urls, detail, body, value) — without these MySQL would truncate to VARCHAR(191). Validated with `prisma validate` (passes with a mysql:// URL).
+- .env.example added: DATABASE_URL (mysql://), NEXTAUTH_SECRET, AUTH_TRUST_HOST=true (with the no-hardcoded-NEXTAUTH_URL warning), NEXT_PUBLIC_SITE_URL, ADMIN_EMAIL/ADMIN_PASSWORD, GOOGLE_CLIENT_ID/SECRET; notes that AI/SMTP/gateways/costs are admin-panel settings, not env.
+- DEPLOY.md added: step-by-step (create MySQL DB, copy MySQL schema, GitHub import, build/start commands `npm run build` + `node .next/standalone/server.js`, env vars, first-run checklist incl. OpenRouter key + SMTP + gateways + OAuth callback, watchlist cron via /api/watchlist/tick every 10-15 min, SSL).
+- package.json: start script now uses `node` instead of `bun` (Hostinger has no bun); `postinstall: prisma generate` added so installs on any host get a client.
+- src/lib/seed.ts: admin account now reads ADMIN_EMAIL/ADMIN_PASSWORD env (previous hardcoded admin@adaudit.app / Admin@2024! remains as sandbox fallback) so production never ships a known password.
+
+Design polish (UXpert language):
+- Watchlist page: empty state now uses the dedicated monitor illustration; "How scheduling works" card gained a small monitor scene (theme-aware, light+dark variants verified).
+- Report detail page verified end-to-end again after edits (light + dark): score ring, section cards, strengths/risks/fixes, roadmap, comparison panel all render correctly.
+- PDF branding already on coral #f86642 (from task 13) — confirmed, no change needed.
+
+Module checklist re-verified against the original brief (all present):
+1) Audit tool (single+batch, 3 modes, deep scan) 2) Ad network readiness (ADSENSE/EZOIC/MEDIAVINE/RAPTIVE with real logos) 3) AdSense writer (17-rule policy prompt, images, WordPress publish) 4) Affiliate content writer 5) Quick index (IndexNow) 6) Blog (+admin manager) 7) Contact page 8) Subscription/credits billing (USD + BDT live rate, bkash/nagad/rocket manual + API gateways) 9) /manage/ admin panel (users, audits, monitors, payments, plans, gateways, affiliate, messages, blog, activity, settings). Plus: branded PDF, 20% affiliate commission + withdrawals, 2FA, Google OAuth (needs keys), developer API with caps.
+
+Verified end-to-end this round (browser, desktop 1366 + mobile 390, light + dark):
+- Free tool golden path, report detail (light/dark), watchlist empty state + illustrations, checkout (real gateway logos, USD/BDT toggle, consent gate), admin panel pages, login/register/dashboard surfaces.
+- Final: lint clean, route sweep correct (404s only for invalid slugs/tokens), no runtime errors in dev.log, browser closed.
+
+Stage Summary:
+- AdAudit/Audit Form is now a clean, deployment-oriented repo: 36 dead files removed, dark-mode home mockup fixed, font preloading, production env handling for admin seeding, a validated MySQL schema for Hostinger, and a concrete deploy guide for the Business shared plan.
+- Sandbox state: no schema changes this round (schema.mysql.prisma is additive). Test user 58 credits (1 deep monitor), admin 9,969 credits. .env.example + DEPLOY.md + prisma/schema.mysql.prisma are new files.
+- Next priorities: production smoke test once deployed (seed + first audit against OpenRouter); Stripe/PayPal/SSLCommerz live webhooks still need a public URL + keys; optional per-key usage export page; consider sitemap lastmod for blog posts.

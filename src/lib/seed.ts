@@ -77,12 +77,12 @@ async function seed(): Promise<void> {
 
   // Admin account (change the password from /manage/settings after first login)
   await db.user.upsert({
-    where: { email: "admin@adaudit.app" },
+    where: { email: process.env.ADMIN_EMAIL || "admin@adaudit.app" },
     update: {},
     create: {
-      email: "admin@adaudit.app",
+      email: process.env.ADMIN_EMAIL || "admin@adaudit.app",
       name: "Administrator",
-      passwordHash: hashPassword("Admin@2024!"),
+      passwordHash: hashPassword(process.env.ADMIN_PASSWORD || "Admin@2024!"),
       role: "ADMIN",
       credits: 9999,
       referralCode: "ADMIN001",

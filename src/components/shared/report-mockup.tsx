@@ -11,12 +11,12 @@ export function ReportMockup() {
     { status: "risk", label: "Category pages are empty" },
   ];
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_3px_rgba(27,38,32,0.08),0_12px_32px_rgba(27,38,32,0.10)]" aria-hidden="true">
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(27,38,32,0.08),0_12px_32px_rgba(27,38,32,0.10)]" aria-hidden="true">
       <div className="flex items-center gap-1.5 border-b border-border bg-muted px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-[#d5dcd8]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#d5dcd8]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#d5dcd8]" />
-        <span className="ml-3 hidden rounded-sm bg-white px-2.5 py-0.5 text-[11px] text-muted-foreground sm:block">
+        <span className="ml-3 hidden rounded-sm bg-background px-2.5 py-0.5 text-[11px] text-muted-foreground sm:block">
           mygreengarden.com / audit report
         </span>
       </div>

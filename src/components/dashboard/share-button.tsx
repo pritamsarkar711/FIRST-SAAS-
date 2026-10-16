@@ -41,7 +41,7 @@ export function ShareButton({ auditId, initialToken }: { auditId: string; initia
   if (!token) {
     return (
       <Button variant="outline" onClick={() => void toggle()} disabled={busy} className="rounded-md font-semibold">
-        <Share2 className="mr-2 h-4.5 w-4.5" /> Share report
+        <Share2 className="mr-2 h-4.5 w-4.5" /> Share
       </Button>
     );
   }

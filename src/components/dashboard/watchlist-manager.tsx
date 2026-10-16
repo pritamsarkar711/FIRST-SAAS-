@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Illustration } from "@/components/shared/illustration";
 import { cn } from "@/lib/utils";
 
 interface WatchHistoryPoint { id: string; probability: number; createdAt: string }
@@ -412,7 +413,7 @@ export function WatchlistManager({ credits, costs, deepCost = 6 }: { credits: nu
             </ul>
           ) : (
             <EmptyState
-              image="growth"
+              image="monitor"
               title="No domains monitored yet"
               body="Add a domain and Audit Form will re-check it on a schedule, keep every score, and show you the trend."
               size="md"
@@ -546,12 +547,17 @@ export function WatchlistManager({ credits, costs, deepCost = 6 }: { credits: nu
           </form>
 
           <div className="mt-4 rounded-lg border border-dashed border-border bg-secondary/40 p-4 text-xs leading-relaxed text-muted-foreground">
-            <p className="font-bold text-foreground">How scheduling works</p>
-            <p className="mt-1.5">
-              Checks run automatically when you open the dashboard, or around the clock if your host
-              pings the monitoring endpoint. If a check cannot run because credits ran out, the monitor
-              pauses itself and tells you, so nothing silently fails.
-            </p>
+            <div className="flex items-start gap-3">
+              <Illustration name="monitor" alt="" className="hidden h-16 w-20 shrink-0 sm:block [&>img]:h-full [&>img]:w-full [&>img]:object-contain" />
+              <div>
+                <p className="font-bold text-foreground">How scheduling works</p>
+                <p className="mt-1.5">
+                  Checks run automatically when you open the dashboard, or around the clock if your host
+                  pings the monitoring endpoint. If a check cannot run because credits ran out, the monitor
+                  pauses itself and tells you, so nothing silently fails.
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
       </div>

@@ -1,0 +1,317 @@
+// Audit Form — MySQL/MariaDB schema for production (Hostinger).
+// This file is identical to schema.prisma except:
+//   1. provider = "mysql"
+//   2. long-text columns are annotated @db.Text / @db.MediumText
+//      (MySQL defaults to VARCHAR(191), which would truncate JSON
+//       reports and article HTML).
+// To deploy: copy this file over schema.prisma, set DATABASE_URL to the
+// MySQL connection string, then run `prisma db push` + `prisma generate`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  passwordHash     String?
+  name             String?
+  image            String?
+  role             String   @default("USER") // USER | ADMIN
+  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  credits          Int      @default(10)
+  referralCode     String   @unique
+  referredById     String?
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  referredUsers  User[]             @relation("Referrer")
+  referrer       User?              @relation("Referrer", fields: [referredById], references: [id], onDelete: SetNull)
+  earningSources AffiliateEarning[] @relation("EarningSource")
+  audits         Audit[]
+  payments       Payment[]
+  subscriptions  Subscription[]
+  contentJobs    ContentJob[]
+  indexRequests  IndexRequest[]
+  earnings       AffiliateEarning[] @relation("Earner")
+  withdrawals    Withdrawal[]
+  blogPosts      BlogPost[]
+  messages       ContactMessage[]
+  notifications  Notification[]
+  watchItems     WatchItem[]
+  apiKeys        ApiKey[]
+}
+
+model Audit {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain      String
+  target      String     @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
+  mode        String // NORMAL | STANDARD | PREMIUM
+  status      String     @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  probability Int        @default(0)
+  verdict     String?
+  report      String? @db.MediumText // JSON report
+  signals     String? @db.MediumText // JSON crawl signals
+  deepScan    Boolean  @default(false) // deep crawl: more articles, verified nav pages, freshness
+  error       String? @db.Text
+  creditsUsed Int        @default(0)
+  shareToken  String?    @unique
+  batchId     String? // groups audits started together as one batch
+  watchItemId String?
+  watchItem   WatchItem? @relation(fields: [watchItemId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([domain, createdAt])
+  @@index([batchId])
+}
+
+model WatchItem {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain       String
+  target       String    @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
+  mode         String    @default("STANDARD") // NORMAL | STANDARD | PREMIUM
+  deepScan     Boolean   @default(false) // scheduled checks use the deep crawl
+  intervalDays Int       @default(7)
+  active       Boolean   @default(true)
+  lastAuditId  String?
+  lastScore    Int?
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  runs         Int       @default(0)
+  pausedReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  audits Audit[]
+
+  @@unique([userId, domain, target])
+  @@index([active, nextRunAt])
+}
+
+model ApiKey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  prefix       String // display form, e.g. ak_a83f1c · · · never the full secret
+  keyHash      String    @unique // sha256 hex of the full key; the raw key is shown once
+  lastUsedAt   DateTime?
+  requestCount Int       @default(0)
+  dailyCap     Int? // max requests per UTC day for this key; null = unlimited
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  usage ApiKeyUsage[]
+
+  @@index([userId, createdAt])
+}
+
+model ApiKeyUsage {
+  id      String @id @default(cuid())
+  keyId   String
+  key     ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  day     String // YYYY-MM-DD (UTC)
+  count   Int    @default(0)
+
+  @@unique([keyId, day])
+  @@index([keyId, day])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String? // subject user, when applicable
+  actorEmail String // who performed the action (user or admin email)
+  action     String // e.g. AUTH_LOGIN, AUDIT_START, PAYMENT_APPROVE
+  detail     String?  @db.Text // human readable context
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorEmail, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // AUDIT | PAYMENT | WITHDRAWAL | MESSAGE | SYSTEM
+  title     String
+  body      String   @db.Text
+  link      String? // in-app destination
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
+model Plan {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  description  String?
+  priceUsd     Float
+  credits      Int
+  monitorLimit Int? // concurrent site monitors allowed; null = not set (uses platform default)
+  features     String    @db.Text @default("[]") // JSON string[]
+  badge        String?
+  active       Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  payments     Payment[]
+}
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String?
+  planName  String
+  credits   Int
+  status    String    @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED
+  startedAt DateTime  @default(now())
+  expiresAt DateTime?
+}
+
+model Payment {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId     String?
+  plan       Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  planName   String
+  amount     Float
+  currency   String    @default("USD")
+  amountBdt  Float?
+  gateway    String
+  senderInfo String?
+  txId       String?
+  status     String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note       String?
+  meta       String?   @db.Text
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  earnings AffiliateEarning[]
+
+  @@index([status, createdAt])
+}
+
+model GatewayConfig {
+  id           String  @id @default(cuid())
+  code         String  @unique
+  name         String
+  logo         String?
+  enabled      Boolean @default(false)
+  mode         String  @default("MANUAL") // MANUAL | API
+  instructions String? @db.Text
+  config       String  @db.Text @default("{}") // JSON provider keys
+  sortOrder    Int     @default(0)
+}
+
+model ContactMessage {
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  reason    String
+  message   String    @db.Text
+  status    String    @default("OPEN") // OPEN | REPLIED | CLOSED
+  reply     String?   @db.Text
+  createdAt DateTime  @default(now())
+  repliedAt DateTime?
+}
+
+model BlogPost {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  excerpt         String?   @db.Text
+  content         String    @db.MediumText
+  coverImage      String?
+  metaTitle       String?
+  metaDescription String?
+  status          String    @default("DRAFT") // DRAFT | PUBLISHED
+  views           Int       @default(0)
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model AffiliateEarning {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation("Earner", fields: [userId], references: [id], onDelete: Cascade)
+  fromUserId String?
+  fromUser   User?    @relation("EarningSource", fields: [fromUserId], references: [id], onDelete: SetNull)
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  amount     Float
+  status     String   @default("PENDING") // PENDING | CLEARED | PAID
+  createdAt  DateTime @default(now())
+}
+
+model Withdrawal {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Float
+  method     String
+  account    String
+  status     String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | REJECTED
+  note       String?
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+}
+
+model ContentJob {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // ADSENSE | AFFILIATE
+  mode        String // STANDARD | PREMIUM
+  keyword     String
+  input       String? @db.Text // JSON options
+  status      String   @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  result      String? @db.MediumText // JSON article
+  images      String? @db.Text // JSON image files
+  error       String?
+  creditsUsed Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model IndexRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  urls        String  @db.Text // JSON string[]
+  keyFileUrl  String?
+  status      String   @default("PENDING") // PENDING | SUBMITTED | PARTIAL | FAILED
+  result      String? @db.MediumText // JSON
+  creditsUsed Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  key       String   @id
+  value     String   @db.Text // JSON
+  updatedAt DateTime @updatedAt
+}

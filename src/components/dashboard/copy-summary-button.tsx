@@ -29,7 +29,7 @@ export function CopySummaryButton({ text }: { text: string }) {
   return (
     <Button variant="outline" onClick={copy} className="rounded-md font-semibold print:hidden">
       {copied ? <CircleCheck className="mr-2 h-4.5 w-4.5 text-ok" /> : <Copy className="mr-2 h-4.5 w-4.5" />}
-      {copied ? "Copied" : "Copy summary"}
+      {copied ? "Copied" : "Copy"}
     </Button>
   );
 }

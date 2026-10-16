@@ -4,7 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/shared/theme";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000"
+  ),
   title: {
     default: "Audit Form — Know your AdSense approval odds before you apply",
     template: "%s | Audit Form",
@@ -32,6 +36,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preload" href="/fonts/Telenor-Regular.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/Telenor-Bold.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+      </head>
       <body className="antialiased bg-background text-foreground min-h-screen flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
         <Toaster />
