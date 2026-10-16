@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Radar, Play, Pause, Trash2, CircleCheck, CircleAlert, CircleMinus, Plus, ArrowRight, Coins, RefreshCw,
+  Radar, Play, Pause, Trash2, CircleCheck, CircleAlert, CircleMinus, Plus, ArrowRight, Coins, RefreshCw, ScanSearch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 interface WatchHistoryPoint { id: string; probability: number; createdAt: string }
 interface WatchItem {
-  id: string; domain: string; target: string; mode: string; intervalDays: number;
+  id: string; domain: string; target: string; mode: string; deepScan: boolean; intervalDays: number;
   active: boolean; lastAuditId: string | null; lastScore: number | null;
   lastRunAt: string | null; nextRunAt: string | null; runs: number; pausedReason: string | null;
   running: boolean; history: WatchHistoryPoint[];
@@ -66,7 +66,7 @@ function Spark({ points }: { points: WatchHistoryPoint[] }) {
   );
 }
 
-export function WatchlistManager({ credits, costs }: { credits: number; costs: { normal: number; standard: number; premium: number } }) {
+export function WatchlistManager({ credits, costs, deepCost = 6 }: { credits: number; costs: { normal: number; standard: number; premium: number }; deepCost?: number }) {
   const router = useRouter();
   const [items, setItems] = useState<WatchItem[] | null>(null);
   const [balance, setBalance] = useState(credits);
@@ -76,6 +76,7 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
   const [domain, setDomain] = useState("");
   const [target, setTarget] = useState("ADSENSE");
   const [mode, setMode] = useState("STANDARD");
+  const [deep, setDeep] = useState(false);
   const [intervalDays, setIntervalDays] = useState("7");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
@@ -145,7 +146,7 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
       const res = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain, target, mode, intervalDays: Number(intervalDays) }),
+        body: JSON.stringify({ domain, target, mode, intervalDays: Number(intervalDays), deepScan: deep }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -275,6 +276,11 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
                         <p className="mt-1 text-xs text-muted-foreground">
                           {NETWORKS.find((n) => n.value === item.target)?.label ?? item.target}
                           {" · "}{MODE_LABELS[item.mode] ?? item.mode} mode
+                          {item.deepScan && (
+                            <span className="ml-1.5 inline-flex items-center gap-1 font-bold text-primary">
+                              <ScanSearch className="h-3 w-3" aria-hidden="true" /> Deep scan
+                            </span>
+                          )}
                           {" · "}every {item.intervalDays} days
                           {" · "}{item.runs} {item.runs === 1 ? "check" : "checks"} run
                         </p>
@@ -351,6 +357,33 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
                           <SelectItem value="30">Every 30 days</SelectItem>
                         </SelectContent>
                       </Select>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setRowBusy(item.id);
+                          try {
+                            await fetch(`/api/watchlist/${item.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ deepScan: !item.deepScan }),
+                            });
+                            await load();
+                          } finally { setRowBusy(null); }
+                        }}
+                        disabled={rowBusy === item.id}
+                        aria-pressed={item.deepScan}
+                        aria-label={`Deep scan is ${item.deepScan ? "on" : "off"} for ${item.domain}`}
+                        className={cn(
+                          "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-bold transition-colors disabled:opacity-50",
+                          item.deepScan
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-card text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <ScanSearch className="h-3.5 w-3.5" aria-hidden="true" />
+                        Deep
+                      </button>
 
                       <div className="ml-auto flex items-center gap-2">
                         {item.lastAuditId && (
@@ -454,9 +487,48 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
                 </div>
               </div>
 
+              <label
+                className={cn(
+                  "flex cursor-pointer items-start gap-2.5 rounded-md border p-3 transition-colors",
+                  deep ? "border-primary bg-accent" : "border-border bg-card hover:border-input"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={deep}
+                  onChange={(e) => setDeep(e.target.checked)}
+                  className="sr-only"
+                  aria-describedby="watch-deep-desc"
+                />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-sm border",
+                    deep ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card"
+                  )}
+                >
+                  {deep && (
+                    <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 6.5 4.7 9 10 3.4" />
+                    </svg>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-foreground">
+                    Deep scan
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                      <ScanSearch className="h-3 w-3" aria-hidden="true" /> +{deepCost}
+                    </span>
+                  </span>
+                  <span id="watch-deep-desc" className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                    Every scheduled check samples 10 articles and verifies your policy pages for real.
+                  </span>
+                </span>
+              </label>
+
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-                {cost} credits per check · {balance} available
+                {cost + (deep ? deepCost : 0)} credits per check{deep ? ` (${cost} + ${deepCost} deep)` : ""} · {balance} available
               </p>
 
               {addError && (

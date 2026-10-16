@@ -18,6 +18,7 @@ export default async function WatchlistPage() {
     <WatchlistManager
       credits={user!.credits}
       costs={costs.audit}
+      deepCost={costs.deepScan ?? 6}
     />
   );
 }

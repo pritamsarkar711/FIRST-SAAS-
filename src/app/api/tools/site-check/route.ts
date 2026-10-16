@@ -48,7 +48,7 @@ async function fetchText(url: string, timeoutMs = TIMEOUT_MS): Promise<{ ok: boo
 }
 
 /**
- * Free public site check (no signup): verifies the five things every ad network
+ * Free public site check (no signup): verifies the surface signals every ad network
  * reviewer sees first. Rate limited per IP, SSRF-guarded, read-only GETs.
  */
 export async function POST(req: NextRequest) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   if (!home.ok || !home.body) {
     checks.push({ id: "home", label: "Homepage loads over HTTPS", status: "risk", detail: "The site could not be reached over HTTPS. AdSense review starts with a reachable homepage." });
     logActivity({ action: "TOOL_SITECHECK", actorEmail: `anonymous@${clientIp(req)}`, detail: `${domain}: unreachable` });
-    const failed: SiteCheckResult = { domain, checks, passed: 0, total: 6 };
+    const failed: SiteCheckResult = { domain, checks, passed: 0, total: 7 };
     return NextResponse.json(failed);
   }
   checks.push({
@@ -160,6 +160,66 @@ export async function POST(req: NextRequest) {
         ? `Found ${robots.ok ? "robots.txt" : "sitemap.xml"} but not both. Submitting a sitemap speeds up indexing, which reviewers like to see.`
         : "Neither robots.txt nor sitemap.xml responded. Crawlers index such sites slowly and unevenly.",
   });
+
+  // 7. Policy pages open for real (about / contact / privacy): find them in the
+  // homepage links, then fetch up to 3 and measure actual content.
+  const policyTargets: [string, RegExp][] = [
+    ["about", /\/about(-us|-me)?\/?(\?|#|$)/i],
+    ["contact", /\/contact(-us|-me)?\/?(\?|#|$)/i],
+    ["privacy", /\/privacy(-policy)?\/?(\?|#|$)/i],
+  ];
+  const policyFound: { path: string; url: string }[] = [];
+  const linkRe = /<a\b[^>]*href=["']([^"'#\s]+)["']/gi;
+  const seen = new Set<string>();
+  for (const m of html.matchAll(linkRe)) {
+    const href = m[1];
+    if (href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
+    let abs: URL;
+    try { abs = new URL(href, `${home.finalUrl}`); } catch { continue; }
+    if (abs.hostname !== new URL(home.finalUrl).hostname || seen.has(abs.pathname)) continue;
+    for (const [path, re] of policyTargets) {
+      if (re.test(abs.pathname) && !policyFound.some((p) => p.path === path)) {
+        seen.add(abs.pathname);
+        policyFound.push({ path, url: abs.toString() });
+      }
+    }
+    if (policyFound.length === 3) break;
+  }
+  if (policyFound.length === 0) {
+    checks.push({
+      id: "policy",
+      label: "About, Contact and Privacy pages",
+      status: "risk",
+      detail: "None of these pages could be found in the homepage links. AdSense reviewers look for all three, especially a privacy policy.",
+    });
+  } else {
+    const opened = await Promise.all(policyFound.map(async ({ path, url }) => {
+      const r = await fetchText(url, 6000);
+      if (!r.ok || !r.body) return { path, words: 0, reachable: false };
+      const text = r.body
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+        .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&[a-z]+;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      return { path, words: text ? text.split(" ").length : 0, reachable: true };
+    }));
+    const good = opened.filter((p) => p.reachable && p.words >= 100).length;
+    const thin = opened.filter((p) => p.reachable && p.words < 100);
+    checks.push({
+      id: "policy",
+      label: "About, Contact and Privacy pages",
+      status: good === 3 ? "ok" : good >= 1 ? "warn" : "risk",
+      detail: good === 3
+        ? `All ${opened.length} found policy pages open with real content (${opened.map((p) => `${p.path}: ${p.words.toLocaleString()} words`).join(", ")}).`
+        : good >= 1
+          ? `${good} of the policy pages found open with real content.${thin.length ? ` Too thin: ${thin.map((p) => p.path).join(", ")}.` : ""} Reviewers read these, so fill the gaps.`
+          : "Policy page links exist, but none of them opened with readable content. Reviewers treat empty legal pages as a red flag.",
+    });
+  }
 
   const passed = checks.filter((c) => c.status === "ok").length;
   logActivity({ action: "TOOL_SITECHECK", actorEmail: `anonymous@${clientIp(req)}`, detail: `${domain}: ${passed}/${checks.length} passed` });

@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 const patchSchema = z.object({
   active: z.boolean().optional(),
   intervalDays: z.union([z.literal(7), z.literal(14), z.literal(30)]).optional(),
+  deepScan: z.boolean().optional(),
 });
 
 async function ownedItem(id: string, userId: string) {
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid update." }, { status: 400 });
 
-  const data: { active?: boolean; intervalDays?: number; pausedReason?: string | null; nextRunAt?: Date } = {};
+  const data: { active?: boolean; intervalDays?: number; deepScan?: boolean; pausedReason?: string | null; nextRunAt?: Date } = {};
   if (typeof parsed.data.active === "boolean") {
     data.active = parsed.data.active;
     // re-enabling schedules from now, clearing any auto-pause note
@@ -36,6 +37,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       data.pausedReason = null;
       data.nextRunAt = new Date(Date.now() + item.intervalDays * 24 * 60 * 60_000);
     }
+  }
+  if (typeof parsed.data.deepScan === "boolean") {
+    data.deepScan = parsed.data.deepScan;
   }
   if (parsed.data.intervalDays) {
     data.intervalDays = parsed.data.intervalDays;
@@ -52,7 +56,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     action: "WATCH_UPDATE",
     userId: user.id,
     actorEmail: "self",
-    detail: `${item.domain} · ${data.active === false ? "paused" : data.active === true ? "resumed" : `interval ${updated.intervalDays}d`}`,
+    detail: `${item.domain} · ${data.active === false ? "paused" : data.active === true ? "resumed" : data.deepScan !== undefined ? (data.deepScan ? "deep scan on" : "deep scan off") : `interval ${updated.intervalDays}d`}`,
   });
 
   return NextResponse.json({ ok: true });

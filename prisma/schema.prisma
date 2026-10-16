@@ -78,6 +78,7 @@ model WatchItem {
   domain       String
   target       String    @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
   mode         String    @default("STANDARD") // NORMAL | STANDARD | PREMIUM
+  deepScan     Boolean   @default(false) // scheduled checks use the deep crawl
   intervalDays Int       @default(7)
   active       Boolean   @default(true)
   lastAuditId  String?

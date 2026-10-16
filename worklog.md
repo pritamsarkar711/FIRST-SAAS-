@@ -375,3 +375,39 @@ Stage Summary:
 - AdAudit's core audit gained a monetizable depth upgrade with verifiable evidence (the strongest differentiator yet: "we opened your policy pages for real"), and developer API users get honest per-day usage analytics.
 - Sandbox state: schema changed this round (Audit.deepScan, ApiKeyUsage) and was pushed. Test user: 76 credits, keys: Zapier webhook (active, 1 call), CI script (revoked), Usage QA key (revoked, 8 calls recorded). Admin password unchanged. costs.deepScan=6 default (persists on next admin save).
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs public URL); deep-scan option for watchlist monitors (WatchItem.deepScan + UI); per-key spend caps; API usage page with per-key breakdown (currently one combined chart); site-check tool could reuse navPageChecks for a "policy pages" check; consider trimming Turbopack workers to avoid repeat OOM kills (dev server is capped at 1536MB via NODE_OPTIONS).
+
+---
+Task ID: 11 (cron round 9)
+Agent: Z.ai cron review
+Task: QA assessment + Deep scan for watchlist monitors, 7th free site-check (policy pages), styling details
+
+Work Log (status assessment first):
+- QA at round start: lint clean, all 17 public routes 200 + 307 auth redirects correct, dev.log clean, dev server healthy. Platform stable -> feature work per mandate, continuing last round's priority list.
+
+Features added:
+- DEEP SCAN FOR WATCHLIST MONITORS (scheduled checks can now use the deep crawl):
+  - Schema: WatchItem.deepScan Boolean @default(false). db:push + prisma generate + dev server restarted (documented procedure, heap cap 1536MB).
+  - lib/watchlist.ts: startWatchRun charges mode cost + deepScan surcharge, stores deepScan on the created Audit, activity detail gains " · deep"; addWatchItem accepts and persists deepScan.
+  - API: POST /api/watchlist create schema accepts deepScan; GET returns it per item; PATCH /api/watchlist/[id] accepts deepScan (activity logs "deep scan on/off").
+  - UI (watchlist-manager): add form gained the deep-scan checkbox card (+{deepCost} badge, ScanSearch icon, one-line explainer) and the per-check cost line updates live ("18 credits per check (12 + 6 deep)"); each monitor row shows a "Deep scan" label in its meta line and a compact "Deep" toggle button (aria-pressed, primary-tinted when on) next to the interval select.
+  - VERIFIED end-to-end in the browser: toggled Deep on the waitbutwhy.com monitor (chip + aria-pressed true), hit "Check now" -> credits 76 -> 58 (exactly 12+6), audit row created with deepScan=true + watchItemId set, completed at 95% with the deep evidence in the report. Scheduled tick path shares the same code, so automatic runs charge the same.
+- SEVENTH FREE SITE-CHECK: POLICY PAGES (lead magnet upgrade from 6 to 7 checks):
+  - POST /api/tools/site-check now extracts same-origin About/Contact/Privacy links from the homepage HTML (regex-based, no extra dependency), opens up to 3 for real, strips scripts/styles/nav/footer, and measures visible word counts.
+  - Honest statuses: ok when all found pages have >= 100 words, warn with "too thin" callouts when some fall short, risk when links exist but nothing readable opens, risk when no policy links exist at all. Unreachable-homepage path updated to total: 7.
+  - UI + copy: result summary now reads "X of 7 checks passed"; card list renders the new "About, Contact and Privacy pages" check like the others; intro copy on /tools and the hero CTA ("seven quick health checks") updated.
+  - VERIFIED against waitbutwhy.com via API and the /tools UI: "4 of 7 checks passed", policy card warns "2 of the policy pages found open with real content" (matches reality: no About link in nav, Contact + Privacy good). Rate limit, SSRF guard and activity logging unchanged.
+
+Styling details:
+- Watchlist "Deep" row button: 32px target, border-primary bg-primary/10 text-primary when active vs muted outline when off, consistent with the audit page's toggle language.
+- Add-form deep checkbox reuses the audit workspace's custom-check visual (primary fill + inline SVG tick) at a compact size; theme-aware in dark mode (verified mobile 390 light + dark).
+- Site-check policy card inherits the shared status-card system (ok/warn/risk icon + color) so the new check needs no special styling.
+
+Verified this round (desktop 1366 + mobile 390, light + dark):
+- Watchlist deep toggle + chip + cost line; "Check now" deep run end-to-end with exact credit math.
+- Site-check 7th check via curl and the /tools UI; intro copy updated everywhere (tools page, hero).
+- Final: lint clean, 16 public routes 200, no unexpected dev.log errors, browser closed.
+
+Stage Summary:
+- Monitoring and the deep upgrade are now one story: users can put a domain on a schedule once and every automatic check gets the full evidence pass. The free tool now demonstrates the same "we open your policy pages for real" differentiator before signup.
+- Sandbox state: schema changed this round (WatchItem.deepScan) and was pushed. Test user: 58 credits, 1 active monitor (waitbutwhy.com, Standard + Deep, every 7 days, 95% last score, 2 checks run). Admin password unchanged. No new settings keys (deepScan cost reused from last round).
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs a public URL); per-key spend caps + per-key usage breakdown chart; admin monitor list showing which monitors run deep; site-check could also verify Terms page (currently About/Contact/Privacy); digest email could include deep-scan flags; consider raising container memory or trimming Turbopack workers to avoid repeat OOM kills.

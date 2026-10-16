@@ -43,10 +43,12 @@ export interface StartRunResult {
  * creates the Audit row linked to the item and fires the background runner.
  * Does not throw into callers.
  */
-export async function startWatchRun(item: { id: string; userId: string; domain: string; target: string; mode: string; runs: number; intervalDays: number }): Promise<StartRunResult> {
+export async function startWatchRun(item: { id: string; userId: string; domain: string; target: string; mode: string; deepScan?: boolean; runs: number; intervalDays: number }): Promise<StartRunResult> {
   try {
     const costs = await getCosts();
-    const creditsUsed = costs.audit[item.mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12;
+    const creditsUsed =
+      (costs.audit[item.mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12) +
+      (item.deepScan ? costs.deepScan ?? 6 : 0);
 
     const ok = await deductCredits(item.userId, creditsUsed);
     if (!ok) return { ok: false, reason: "NOT_ENOUGH_CREDITS", need: creditsUsed };
@@ -57,6 +59,7 @@ export async function startWatchRun(item: { id: string; userId: string; domain: 
         domain: item.domain,
         target: item.target,
         mode: item.mode,
+        deepScan: item.deepScan === true,
         status: "PENDING",
         creditsUsed,
         watchItemId: item.id,
@@ -79,7 +82,7 @@ export async function startWatchRun(item: { id: string; userId: string; domain: 
       action: "WATCH_RUN",
       userId: item.userId,
       actorEmail: "system",
-      detail: `${item.domain} · ${item.target} · ${item.mode.toLowerCase()} · scheduled check #${item.runs + 1}`,
+      detail: `${item.domain} · ${item.target} · ${item.mode.toLowerCase()}${item.deepScan ? " · deep" : ""} · scheduled check #${item.runs + 1}`,
     });
     return { ok: true, auditId: audit.id };
   } catch {
@@ -147,7 +150,7 @@ export async function tickWatchlist(opts: { userId?: string; key?: string; actor
 /** Validates + adds a domain to the user's watchlist. Returns an error string or the created item. */
 export async function addWatchItem(
   userId: string,
-  input: { domain: string; target: string; mode: string; intervalDays: number }
+  input: { domain: string; target: string; mode: string; intervalDays: number; deepScan?: boolean }
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const domain = normalizeDomain(input.domain);
   if (!DOMAIN_RE.test(domain)) return { ok: false, error: "Enter a valid domain like example.com." };
@@ -178,6 +181,7 @@ export async function addWatchItem(
       domain,
       target: input.target,
       mode: input.mode,
+      deepScan: input.deepScan === true,
       intervalDays: input.intervalDays,
       active: true,
       nextRunAt: new Date(Date.now() + input.intervalDays * 24 * 60 * 60_000),
@@ -188,7 +192,7 @@ export async function addWatchItem(
     action: "WATCH_ADD",
     userId,
     actorEmail: "self",
-    detail: `${domain} · every ${input.intervalDays} days · ${input.mode.toLowerCase()}`,
+    detail: `${domain} · every ${input.intervalDays} days · ${input.mode.toLowerCase()}${input.deepScan ? " · deep" : ""}`,
   });
 
   return { ok: true, id: item.id };

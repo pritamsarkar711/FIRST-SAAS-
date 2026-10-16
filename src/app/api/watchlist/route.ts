@@ -32,6 +32,7 @@ export async function GET() {
       domain: i.domain,
       target: i.target,
       mode: i.mode,
+      deepScan: i.deepScan,
       intervalDays: i.intervalDays,
       active: i.active,
       lastAuditId: i.lastAuditId,
@@ -54,6 +55,7 @@ const createSchema = z.object({
   target: z.enum(["ADSENSE", "EZOIC", "MEDIAVINE", "RAPTIVE"]),
   mode: z.enum(["NORMAL", "STANDARD", "PREMIUM"]),
   intervalDays: z.union([z.literal(7), z.literal(14), z.literal(30)]),
+  deepScan: z.boolean().optional().default(false),
 });
 
 export async function POST(req: NextRequest) {
