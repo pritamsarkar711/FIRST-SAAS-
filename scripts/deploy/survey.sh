@@ -63,6 +63,17 @@ if [ -d "$HOME/auditform/app" ]; then
   done
   echo "  supervisor process:"; pgrep -af "auditform/run-app.sh" | head -2 || echo "    (not running)"
   echo "  supervisor restart markers in log: $(grep -c '\[supervisor\]' "$HOME/auditform/app.log" 2>/dev/null || echo 0)"
+  APP_PID=$(pgrep -f "auditform/app/server.js" | head -1)
+  echo "  app process state (pid=$APP_PID):"
+  [ -n "$APP_PID" ] && ps -o pid,stat,rss,vsz,nlwp,etime -p "$APP_PID" 2>/dev/null | sed 's/^/    /'
+  [ -n "$APP_PID" ] && grep -iE "threads|vmrss" /proc/"$APP_PID"/status 2>/dev/null | sed 's/^/    /'
+  echo "  port 3000 (hex 0BB8) in /proc/net/tcp*:"
+  grep -i ":0BB8" /proc/net/tcp /proc/net/tcp6 2>/dev/null | sed 's/^/    /' || echo "    (no LISTEN entry for port 3000)"
+  echo "  exact connect error:"
+  curl -sv --max-time 6 http://127.0.0.1:3000/ 2>&1 | grep -E "Failed|refused|timed out|Connected|HTTP" | head -4 | sed 's/^/    /'
+  echo "  trivial bun TCP bind test (port 3999):"
+  (cd "$HOME/auditform/app" && timeout 8 bun -e "Bun.serve({hostname:'127.0.0.1',port:3999,fetch:()=>new Response('bind-ok')}); setTimeout(()=>process.exit(0),3000);" >/tmp/bindtest.log 2>&1 & sleep 2; BT=$(curl -s --max-time 4 http://127.0.0.1:3999/ 2>/dev/null || echo FAIL); echo "    bind test result: $BT"; wait 2>/dev/null) | head -3
+  cat /tmp/bindtest.log 2>/dev/null | head -3 | sed 's/^/    /'
 else
   echo "  (no ~/auditform/app yet)"
 fi
