@@ -13,6 +13,7 @@ const TABS = [
   { key: "costs", label: "Credit costs" },
   { key: "google", label: "Google sign-in" },
   { key: "smtp", label: "Email (SMTP)" },
+  { key: "monitor", label: "Monitoring" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -24,6 +25,7 @@ interface SettingsShape {
   costs: { audit: { normal: number; standard: number; premium: number }; writer: { standard: number; premium: number }; index: number; signupBonus: number };
   google: { clientId: string; clientSecret: string };
   smtp: { host: string; port: number; user: string; pass: string; from: string };
+  monitor: { monitorLimitFree: number; digestEnabled: boolean; lastSentAt: string };
 }
 
 export function SettingsManager() {
@@ -31,6 +33,7 @@ export function SettingsManager() {
   const [data, setData] = useState<SettingsShape | null>(null);
   const [msg, setMsg] = useState("");
   const [testResult, setTestResult] = useState("");
+  const [digestResult, setDigestResult] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/settings");
@@ -58,6 +61,22 @@ export function SettingsManager() {
     });
     const d = await res.json().catch(() => ({}));
     setTestResult(res.ok && d.ok ? "Key works." : d.error || "Key failed.");
+  }
+
+  async function sendDigest() {
+    setDigestResult("Sending...");
+    const res = await fetch("/api/admin/digest", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send" }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok && d.sent > 0) {
+      setDigestResult(`Sent ${d.sent} digest email${d.sent === 1 ? "" : "s"}.`);
+    } else if (res.ok) {
+      setDigestResult(d.skipped || "Nothing was sent.");
+    } else {
+      setDigestResult(d.error || "Send failed.");
+    }
   }
 
   if (!data) return <div className="h-96 animate-pulse rounded-lg bg-muted" />;
@@ -178,6 +197,35 @@ export function SettingsManager() {
             <p className="rounded-md bg-accent/60 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground sm:col-span-2">
               Used for contact form replies. Hostinger Business plans include email accounts: create one, then use smtp.hostinger.com port 465.
             </p>
+          </div>
+        )}
+
+        {tab === "monitor" && (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Free accounts: monitored domains" type="number" value={String(data.monitor.monitorLimitFree)} onChange={(v) => upd("monitor", { monitorLimitFree: Number(v) })} />
+              <div className="flex items-end pb-1 text-xs leading-relaxed text-muted-foreground">
+                What a user can monitor before buying a plan. Paid plans set their own limit on each plan row.
+              </div>
+            </div>
+            <div className="border-t border-border pt-4">
+              <h2 className="text-sm font-bold text-foreground">Weekly digest email</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Once a week, every member with monitored domains receives a summary of last scores and upcoming checks. Requires SMTP above, and it rides on the same automation cron that runs scheduled checks (POST /api/watchlist/tick with the key from Site monitoring log).
+              </p>
+              <div className="mt-3">
+                <Check label="Send the weekly monitoring digest" checked={data.monitor.digestEnabled} onChange={(v) => upd("monitor", { digestEnabled: v })} />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button type="button" variant="outline" onClick={sendDigest} className="rounded-md font-semibold">Send digest now</Button>
+                <span className="text-xs text-muted-foreground">
+                  {data.monitor.lastSentAt
+                    ? `Last sent ${new Date(data.monitor.lastSentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : "Never sent"}
+                </span>
+              </div>
+              {digestResult && <p className="mt-2 text-sm font-semibold text-foreground">{digestResult}</p>}
+            </div>
           </div>
         )}
 

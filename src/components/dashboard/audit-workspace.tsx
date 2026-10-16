@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,18 +48,23 @@ export function AuditWorkspace({
   costs,
   credits,
   history,
+  initialDomain = "",
+  initialNetwork = "ADSENSE",
+  autostart = false,
 }: {
   costs: { normal: number; standard: number; premium: number };
   credits: number;
   history: HistoryItem[];
+  initialDomain?: string;
+  initialNetwork?: string;
+  autostart?: boolean;
 }) {
   const router = useRouter();
-  const params = useSearchParams();
   const [tab, setTab] = useState<"single" | "batch">("single");
-  const [domain, setDomain] = useState(params.get("domain") || "");
+  const [domain, setDomain] = useState(initialDomain);
   const [batchInput, setBatchInput] = useState("");
   const [invalidDomains, setInvalidDomains] = useState<string[]>([]);
-  const [network, setNetwork] = useState(params.get("network") || "ADSENSE");
+  const [network, setNetwork] = useState(initialNetwork);
   const [mode, setMode] = useState("STANDARD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +73,6 @@ export function AuditWorkspace({
   const [scoreFilter, setScoreFilter] = useState<"all" | "ready" | "close" | "risk">("all");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const batchRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autostart = params.get("autostart") === "1";
   const startedRef = useRef(false);
 
   const stopPolling = useCallback(() => {
@@ -458,6 +462,9 @@ export function AuditWorkspace({
                 h.status === "DONE" && h.probability < 45
               ).map((h) => (
                 <li key={h.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold uppercase text-primary" aria-hidden="true">
+                    {h.domain.replace(/^www\./, "").charAt(0)}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link href={`/dashboard/audit/${h.id}`} className="font-semibold text-foreground hover:text-primary">

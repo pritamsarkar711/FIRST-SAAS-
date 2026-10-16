@@ -157,7 +157,10 @@ export default async function HomePage() {
             <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-ok" /> Free credits on signup</li>
               <li className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-ok" /> PDF report included</li>
-              <li className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-ok" /> No card required</li>
+              <li className="flex items-center gap-1.5">
+                <CircleCheck className="h-4 w-4 text-ok" />
+                <Link href="/sample-report" className="font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary">See a sample report</Link>
+              </li>
             </ul>
           </div>
           <div className="fade-up lg:pl-4">

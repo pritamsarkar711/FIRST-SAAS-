@@ -20,7 +20,7 @@ interface GatewayRow {
 
 function configHint(code: string): string {
   if (code === "stripe") return '{"secretKey":"sk_live_..."}';
-  if (code === "sslcommerz") return '{"store_id":"...","store_password":"..."}';
+  if (code === "sslcommerz") return '{"store_id":"...","store_password":"...","env":"sandbox"}';
   if (code === "paypal") return '{"clientId":"...","clientSecret":"...","env":"sandbox"}';
   return '{"api_key":"..."}';
 }
@@ -32,7 +32,9 @@ function configHelp(code: string): string {
   if (code === "paypal") {
     return 'PayPal REST app credentials from developer.paypal.com. Set "env":"sandbox" while testing and "env":"live" for real money. Checkout redirects the buyer to PayPal and credits are granted automatically after the order is captured.';
   }
-  if (code === "sslcommerz") return "SSLCommerz store credentials. API checkout activates once both values are present.";
+  if (code === "sslcommerz") {
+    return 'SSLCommerz store credentials from the merchant panel. Set "env":"sandbox" while testing and "env":"live" for real money. Checkout redirects the buyer to SSLCommerz\'s hosted page (cards, bKash, Nagad and more) and credits are granted automatically after the transaction is validated server-side.';
+  }
   return "JSON keys for this provider. Checkout switches to automatic API mode as soon as the required keys are present.";
 }
 

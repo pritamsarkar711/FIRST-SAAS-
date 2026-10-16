@@ -218,3 +218,37 @@ Stage Summary:
 - Monitoring is now a sellable per-plan feature, PayPal joins Stripe as a real API card/balance rail, admins can see monitor health at a glance, and reports/history gained practical UX details.
 - Sandbox state: PayPal gateway disabled with empty config; Standard plan monitorLimit 3; test user monitor intact (waitbutwhy.com, 7d, score 85).
 - Next priorities: SSLCommerz session checkout on the same approvePaymentById path; weekly email digest of monitoring results (needs SMTP); Stripe/PayPal webhooks instead of return-url verification (needs public URL); expose monitorLimitFree + digest toggles in admin settings UI; consider raising container memory or trimming Turbopack workers to avoid repeat OOM.
+
+---
+Task ID: 7 (cron round 5)
+Agent: Z.ai cron review
+Task: QA assessment + SSLCommerz checkout, weekly monitoring digest, public sample report, hydration fix, styling details
+
+Work Log (status assessment first):
+- QA: lint clean, all routes 200, dev.log clean. Browser QA (desktop + 390px, light + dark) on home, pricing, blog, login, dashboard, watchlist, audit, sample-report. One real defect found: React 19 hydration mismatch on /dashboard/audit (1 Issue toast). Platform otherwise stable -> bug fix + feature work.
+
+Bugs found and fixed this round:
+- HYDRATION MISMATCH on /dashboard/audit: Radix Select aria-controls (useId) differed server vs client. Root cause: AuditWorkspace was the only component reading useSearchParams() in a client component; the dynamic-API Suspense boundary shifted the hydration tree path, so React 19 flagged the Radix id attribute. Fix: the audit page now awaits searchParams() server-side and passes initialDomain/initialNetwork/autostart as props; AuditWorkspace dropped useSearchParams entirely. Verified: dev-tools badge data-error=false, and ?domain=x&network=EZOIC prefill still works (both fields populated). Writer/watchlist pages were already clean (no useSearchParams).
+- Watchlist header pill during load showed "0 of … monitors active" (raw fallback text). Now renders a two-bar skeleton until limit resolves.
+- Dev server OOM-killed again between rounds (documented restart procedure from round 4 used: Bun.spawn reparented to PID 1).
+
+Features added:
+- SSLCOMMERZE API CHECKOUT (third real gateway rail): POST /api/billing creates an SSLCommerz session via gwprocess/v4/api.php (store_id/store_password/env config, tran_id=paymentId, USD, success/fail/cancel URLs pointing at our verify route). GET /api/billing only lists sslcommerz when both credentials are present. New /api/billing/sslcommerz/verify: stores the returned val_id, re-validates server-side against validationserverAPI.php (status VALID/VALIDATED, tran_id match, amount >= order), then runs the shared approvePaymentById (exactly-once). Buyer redirected to /dashboard/billing/checkout/success?scz=1 (approved/failed branches with honest copy). Activity actions SSLCZ_VERIFY/SSLCZ_MISMATCH added to labels + billing group. Admin gateways manager: updated hint (env key) and full help text. VERIFIED end-to-end with fake sandbox creds: gateway appears at checkout -> real SSLCommerz sandbox responded "Store Credential Error Or Store is De-active" -> 502 surfaced cleanly -> payment auto-REJECTED with note -> gateway restored to disabled/empty. Guards: unauth verify -> /login, bad payment -> /dashboard/billing.
+- WEEKLY MONITORING DIGEST EMAIL: lib/monitor-digest.ts maybeSendDigests({force}) - per-user digest (domain, network, interval, next check, last score color-coded, paused reasons) via nodemailer when SMTP is configured; global 7-day cadence via monitorDigest setting (force bypasses); rides on the automation tick (POST /api/watchlist/tick?key=) after scheduled checks run, non-fatal. Admin settings got a new "Monitoring" tab: free-account monitor limit (monitorLimitFree, validated 0-50) + digest toggle + "Send digest now" button (POST /api/admin/digest) with last-sent timestamp. Activity: DIGEST_SENT/DIGEST_SKIP. VERIFIED: disabled -> honest skip; enabled without SMTP -> "SMTP is not configured, so no email could be sent"; settings round-trip ok; UI button shows the honest result text. Left disabled (no SMTP in sandbox).
+- PUBLIC SAMPLE REPORT (/sample-report): static marketing page reusing ReportView with a complete, realistic WAIT_AND_IMPROVE example (62%, aligned with the homepage mockup: 8 posts, 2 thin articles, empty categories, no bylines) incl. signals strip, 6 sections, strengths/risks/fixes, 5-step roadmap, clearly labeled fictional domain, top + bottom CTAs. Linked from the hero trust row ("See a sample report") and added to sitemap.xml (priority 0.7). Verified desktop/mobile/dark.
+
+Styling details:
+- Audit history rows: domain initial avatar (bg-primary/10 chip) for faster scanning.
+- Watchlist loading pill skeleton (above).
+- Activity manager + route: SSLCZ/DIGEST labels and category mappings (monitoring + billing groups).
+
+Verified this round (desktop 1366 + mobile 390, light + dark):
+- Hydration toast gone on /dashboard/audit; URL prefill (?domain, ?network) works via server props.
+- Sample report renders full report view; dark mode clean; 390px no horizontal overflow; hero link present (1 match).
+- SSLCommerz failure path + guards + restore; digest paths + admin tab + send-now UI.
+- Final: lint clean, 17 public routes 200, no unexpected errors in dev.log, browser closed.
+
+Stage Summary:
+- Payments now cover three automatic rails (Stripe, PayPal, SSLCommerz) plus four manual BD gateways, all converging on the same exactly-once approval path. Monitoring has an admin-facing weekly email digest gated on SMTP. The public sample report gives prospects the full report experience pre-signup. A real hydration bug was found via dev-tools and fixed at the root (no more useSearchParams in client components).
+- Sandbox state: sslcommerz gateway disabled with empty config; digest disabled; monitor/digest settings persist; test user unchanged (99 credits, 1 monitor); admin password unchanged.
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks instead of return-url verification (needs public URL); digest test-send to a specific admin email even without user monitors; audit CSV per-domain trend export; sitemap-level content scanning depth; consider trimming Turbopack memory to avoid repeat OOM kills.

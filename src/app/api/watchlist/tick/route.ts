@@ -47,7 +47,13 @@ export async function POST(req: NextRequest) {
     const expected = await ensureKey();
     if (key === expected) {
       const result = await tickWatchlist({ key });
-      return NextResponse.json({ ok: true, ...result });
+      // Weekly digest rides on the automation tick; failures are non-fatal.
+      const { maybeSendDigests } = await import("@/lib/monitor-digest");
+      const digest = await maybeSendDigests().catch(() => ({ sent: 0, skipped: "Digest failed.", enabled: true }));
+      if (digest.sent > 0) {
+        logActivity({ action: "DIGEST_SENT", actorEmail: "automation", detail: `${digest.sent} monitoring digest email(s) sent` });
+      }
+      return NextResponse.json({ ok: true, ...result, digest: { sent: digest.sent, skipped: digest.skipped || undefined } });
     }
     return NextResponse.json({ error: "Invalid key." }, { status: 403 });
   }

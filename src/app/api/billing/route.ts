@@ -22,6 +22,7 @@ export async function GET() {
         const cfg = JSON.parse(g.config || "{}") as Record<string, unknown>;
         if (g.code === "stripe") return typeof cfg.secretKey === "string" && cfg.secretKey.startsWith("sk_");
         if (g.code === "paypal") return typeof cfg.clientId === "string" && (cfg.clientId as string).length > 8 && typeof cfg.clientSecret === "string" && (cfg.clientSecret as string).length > 8;
+        if (g.code === "sslcommerz") return typeof cfg.store_id === "string" && (cfg.store_id as string).length > 3 && typeof cfg.store_password === "string" && (cfg.store_password as string).length > 3;
         return Object.keys(cfg).length > 0;
       } catch {
         return false;
@@ -44,11 +45,64 @@ interface GatewayConfigJson {
   secretKey?: string;
   clientId?: string;
   clientSecret?: string;
+  store_id?: string;
+  store_password?: string;
   env?: string;
 }
 
 function paypalBase(env?: string): string {
   return env === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+}
+
+function sslCommerzBase(env?: string): string {
+  return env === "live" ? "https://securepay.sslcommerz.com" : "https://sandbox.sslcommerz.com";
+}
+
+/** Creates an SSLCommerz checkout session and returns the hosted payment page URL. */
+async function createSslCommerzSession(opts: {
+  base: string; storeId: string; storePassword: string;
+  planName: string; priceUsd: number; credits: number; email: string; name: string;
+  paymentId: string; planId: string; origin: string;
+}): Promise<{ ok: true; url: string; sessionKey: string } | { ok: false; error: string }> {
+  const params = new URLSearchParams();
+  params.set("store_id", opts.storeId);
+  params.set("store_passwd", opts.storePassword);
+  params.set("total_amount", opts.priceUsd.toFixed(2));
+  params.set("currency", "USD");
+  params.set("tran_id", opts.paymentId);
+  params.set("success_url", `${opts.origin}/api/billing/sslcommerz/verify?payment=${opts.paymentId}&result=success`);
+  params.set("fail_url", `${opts.origin}/api/billing/sslcommerz/verify?payment=${opts.paymentId}&result=fail`);
+  params.set("cancel_url", `${opts.origin}/dashboard/billing/checkout?plan=${opts.planId}&canceled=1`);
+  params.set("emi_option", "0");
+  params.set("shipping_method", "NO");
+  params.set("product_name", `AdAudit ${opts.planName} plan`);
+  params.set("product_category", "Software");
+  params.set("product_profile", "software-generic");
+  params.set("cus_name", opts.name || opts.email.split("@")[0]);
+  params.set("cus_email", opts.email);
+  params.set("cus_add1", "N/A");
+  params.set("cus_city", "Dhaka");
+  params.set("cus_country", "Bangladesh");
+  params.set("cus_phone", "01700000000");
+
+  try {
+    const res = await fetch(`${opts.base}/gwprocess/v4/api.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      status?: string; GatewayPageURL?: string; sessionkey?: string; failedreason?: string;
+    };
+    if (!res.ok || data.status !== "SUCCESS" || !data.GatewayPageURL) {
+      const msg = (data.failedreason || "SSLCommerz rejected the checkout request.").slice(0, 200);
+      return { ok: false, error: msg };
+    }
+    return { ok: true, url: data.GatewayPageURL, sessionKey: data.sessionkey || "" };
+  } catch {
+    return { ok: false, error: "Could not reach SSLCommerz. Try again in a moment." };
+  }
 }
 
 /** OAuth2 client-credentials token for the PayPal REST API. */
@@ -276,6 +330,42 @@ export async function POST(req: NextRequest) {
         actorEmail: user.email,
         userId: user.id,
         detail: `${plan.name} · $${plan.priceUsd.toFixed(2)} via PayPal · order ${created.orderId.slice(0, 20)}…`,
+        ip: clientIp(req),
+      });
+      return NextResponse.json({ ok: true, redirectUrl: created.url, paymentId: payment.id });
+    }
+
+    if (gw.code === "sslcommerz") {
+      if (!config.store_id || !config.store_password) {
+        return NextResponse.json({ error: "SSLCommerz is not configured yet. Please pick another method." }, { status: 400 });
+      }
+      const origin = req.nextUrl.origin;
+      const created = await createSslCommerzSession({
+        base: sslCommerzBase(config.env),
+        storeId: config.store_id,
+        storePassword: config.store_password,
+        planName: plan.name,
+        priceUsd: plan.priceUsd,
+        credits: plan.credits,
+        email: user.email,
+        name: user.name || "",
+        paymentId: payment.id,
+        planId: plan.id,
+        origin,
+      });
+      if (!created.ok) {
+        await db.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", note: "SSLCommerz session failed: " + created.error } });
+        return NextResponse.json({ error: created.error }, { status: 502 });
+      }
+      await db.payment.update({
+        where: { id: payment.id },
+        data: { meta: JSON.stringify({ gatewayName: gw.name, mode: gw.mode, sslSessionKey: created.sessionKey }) },
+      });
+      logActivity({
+        action: "CHECKOUT_SUBMIT",
+        actorEmail: user.email,
+        userId: user.id,
+        detail: `${plan.name} · $${plan.priceUsd.toFixed(2)} via SSLCommerz · session ${created.sessionKey.slice(0, 20)}…`,
         ip: clientIp(req),
       });
       return NextResponse.json({ ok: true, redirectUrl: created.url, paymentId: payment.id });

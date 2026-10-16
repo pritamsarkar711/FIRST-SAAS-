@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment?: string; session_id?: string; canceled?: string; pp?: string; approved?: string; failed?: string; reason?: string }>;
+  searchParams: Promise<{ payment?: string; session_id?: string; canceled?: string; pp?: string; scz?: string; approved?: string; failed?: string; reason?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
@@ -54,6 +54,36 @@ export default async function CheckoutSuccessPage({
         icon={<CircleX className="mx-auto h-11 w-11 text-risk" />}
         title="Payment not completed"
         body={sp.reason ? decodeURIComponent(sp.reason).slice(0, 220) : "PayPal reports the payment did not finish. No charge was made. You can retry the checkout or use a manual gateway."}
+      />
+    );
+  }
+
+  // SSLCommerz return: validation already happened server-side at /api/billing/sslcommerz/verify.
+  if (sp.scz) {
+    if (!sp.payment) {
+      return (
+        <Shell
+          icon={<CircleX className="mx-auto h-11 w-11 text-risk" />}
+          title="Missing payment reference"
+          body="We could not match this page to an order. Open your billing page to see the current state of your payments."
+        />
+      );
+    }
+    if (sp.approved) {
+      return (
+        <Shell
+          icon={<CircleCheck className="mx-auto h-11 w-11 text-ok" />}
+          title="Payment confirmed"
+          body="Your SSLCommerz payment went through and your credits have been added to the balance. The transaction is recorded in your payment history."
+          ok
+        />
+      );
+    }
+    return (
+      <Shell
+        icon={<CircleX className="mx-auto h-11 w-11 text-risk" />}
+        title="Payment not completed"
+        body={sp.reason ? decodeURIComponent(sp.reason).slice(0, 220) : "SSLCommerz reports the payment did not finish. No charge was made. You can retry the checkout or use a manual gateway."}
       />
     );
   }

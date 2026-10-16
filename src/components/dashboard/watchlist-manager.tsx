@@ -222,12 +222,22 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
           </p>
         </div>
         <div className="rounded-md border border-border bg-card px-4 py-2.5 text-sm">
-          <span className="font-bold">{balance}</span> <span className="text-muted-foreground">credits</span>
-          <span className="mx-2 text-border">|</span>
-          <span className="font-bold">{activeCount}</span> <span className="text-muted-foreground">of {limit ?? "…"} monitors active</span>
-          {planName && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{planName}</span>}
-          {limit !== null && activeCount >= limit && (
-            <Link href="/dashboard/billing" className="ml-2 font-semibold text-primary hover:underline">Upgrade</Link>
+          {limit === null ? (
+            <span className="flex items-center gap-2" aria-hidden="true">
+              <span className="h-4 w-14 animate-pulse rounded-sm bg-secondary" />
+              <span className="text-border">|</span>
+              <span className="h-4 w-36 animate-pulse rounded-sm bg-secondary" />
+            </span>
+          ) : (
+            <>
+              <span className="font-bold">{balance}</span> <span className="text-muted-foreground">credits</span>
+              <span className="mx-2 text-border">|</span>
+              <span className="font-bold">{activeCount}</span> <span className="text-muted-foreground">of {limit} monitors active</span>
+              {planName && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{planName}</span>}
+              {activeCount >= limit && (
+                <Link href="/dashboard/billing" className="ml-2 font-semibold text-primary hover:underline">Upgrade</Link>
+              )}
+            </>
           )}
         </div>
       </div>
