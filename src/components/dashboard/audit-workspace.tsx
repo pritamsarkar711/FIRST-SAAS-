@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw } from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw, LineChart, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScoreRing, VerdictBadge, StatusIcon } from "@/components/shared/report-ui";
@@ -415,6 +415,12 @@ export function AuditWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-foreground">Audit history</h2>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/domains"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <LineChart className="h-3.5 w-3.5" aria-hidden="true" /> Domain trends
+            </Link>
             {[
               { v: "all", label: "All" },
               { v: "ready", label: "70%+" },
@@ -467,7 +473,11 @@ export function AuditWorkspace({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/dashboard/audit/${h.id}`} className="font-semibold text-foreground hover:text-primary">
+                      <Link
+                        href={`/dashboard/domains/${encodeURIComponent(h.domain)}`}
+                        className="font-semibold text-foreground hover:text-primary"
+                        title={`Score trend for ${h.domain}`}
+                      >
                         {h.domain}
                       </Link>
                       {h.batchId && <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">Batch</span>}
@@ -498,6 +508,14 @@ export function AuditWorkspace({
                         )}>
                           {h.probability}%
                         </span>
+                        <Link
+                          href={`/dashboard/audit/${h.id}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                          aria-label="Open report"
+                          title="Open report"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
                         <a href={`/api/audit/${h.id}/pdf`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary" aria-label="Download PDF report" title="Download PDF report">
                           <FileDown className="h-4 w-4" />
                         </a>

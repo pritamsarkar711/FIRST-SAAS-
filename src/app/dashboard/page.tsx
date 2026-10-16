@@ -1,11 +1,13 @@
 import { auth } from "@/lib/auth";
 import Link from "next/link";
-import { SearchCheck, PenLine, Link2, Coins, FileDown, ArrowRight, Users, Radar } from "lucide-react";
+import { SearchCheck, PenLine, Link2, Coins, FileDown, ArrowRight, Users, Radar, LineChart, TrendingUp, TrendingDown } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCosts } from "@/lib/credits";
+import { normalizeDomain } from "@/lib/guard";
 import { Button } from "@/components/ui/button";
 import { VerdictBadge } from "@/components/shared/report-ui";
 import { ScoreHistoryChart } from "@/components/dashboard/score-history-chart";
+import { OnboardingChecklist, type OnboardingStep } from "@/components/dashboard/onboarding-checklist";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
@@ -18,16 +20,44 @@ export default async function DashboardHome() {
     where: { email: session!.user!.email! },
     select: { id: true, credits: true, createdAt: true, referralCode: true },
   });
-  const [costs, audits, jobs, submissions, watchItems] = await Promise.all([
+  const [costs, audits, jobs, submissions, watchItems, watchCount, approvedPayments] = await Promise.all([
     getCosts(),
     db.audit.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 15 }),
     db.contentJob.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 3 }),
     db.indexRequest.count({ where: { userId: user!.id } }),
     db.watchItem.findMany({ where: { userId: user!.id, active: true }, orderBy: { nextRunAt: "asc" }, take: 3, select: { domain: true, nextRunAt: true, lastScore: true } }),
+    db.watchItem.count({ where: { userId: user!.id } }),
+    db.payment.count({ where: { userId: user!.id, status: "APPROVED" } }),
   ]);
+  const fullUser = await db.user.findUnique({
+    where: { id: user!.id },
+    select: { twoFactorEnabled: true },
+  });
 
   const doneAudits = audits.filter((a) => a.status === "DONE");
   const bestAudit = doneAudits.reduce<number | null>((best, a) => (best === null || a.probability > best ? a.probability : best), null);
+
+  const onboardingSteps: OnboardingStep[] = [
+    { id: "audit", label: "Run your first audit", desc: "A full report takes about two minutes.", href: "/dashboard/audit", done: doneAudits.length > 0, cta: "Pick a domain and start" },
+    { id: "monitor", label: "Put a domain on monitoring", desc: "Automatic re-checks keep the score fresh.", href: "/dashboard/watchlist", done: watchCount > 0, cta: "Set up your first monitor" },
+    { id: "article", label: "Write a policy-safe article", desc: "The writer follows AdSense content rules.", href: "/dashboard/writer", done: jobs.length > 0, cta: "Open the content writer" },
+    { id: "twofa", label: "Turn on two-factor login", desc: "A one-time code keeps reports private.", href: "/dashboard/settings", done: !!fullUser?.twoFactorEnabled, cta: "Secure your account" },
+  ];
+
+  // Top domains strip: latest score per audited domain, best performers first
+  const domainStats = new Map<string, { domain: string; last: number | null; prev: number | null; runs: number }>();
+  for (const a of [...audits].reverse()) {
+    const key = normalizeDomain(a.domain);
+    if (!key) continue;
+    const cur = domainStats.get(key) ?? { domain: key, last: null, prev: null, runs: 0 };
+    cur.runs += 1;
+    if (a.status === "DONE") { cur.prev = cur.last; cur.last = a.probability; }
+    domainStats.set(key, cur);
+  }
+  const topDomains = [...domainStats.values()]
+    .filter((d) => d.last !== null)
+    .sort((a, b) => (b.last ?? 0) - (a.last ?? 0))
+    .slice(0, 4);
 
   // Score history: most recent 12 completed audits, oldest first
   const historyRaw = [...doneAudits].reverse().slice(-12);
@@ -50,6 +80,9 @@ export default async function DashboardHome() {
           Member since {new Date(user!.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
         </p>
       </div>
+
+      {/* Getting started (hidden once every step is done or dismissed client-side) */}
+      {onboardingSteps.some((s) => !s.done) && <OnboardingChecklist steps={onboardingSteps} />}
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -88,6 +121,38 @@ export default async function DashboardHome() {
           </p>
         )}
       </div>
+
+      {/* Top domains strip */}
+      {topDomains.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-bold text-foreground"><LineChart className="h-4.5 w-4.5 text-primary" aria-hidden="true" /> Your domains</h2>
+            <Link href="/dashboard/domains" className="text-sm font-semibold text-primary hover:underline">All domain trends</Link>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {topDomains.map((d) => {
+              const delta = d.prev !== null ? (d.last ?? 0) - d.prev : null;
+              return (
+                <li key={d.domain}>
+                  <Link href={`/dashboard/domains/${encodeURIComponent(d.domain)}`} className="group block rounded-md border border-border bg-secondary/40 px-3.5 py-3 transition-colors hover:border-primary/40 hover:bg-accent/40">
+                    <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary">{d.domain}</p>
+                    <p className="mt-1 flex items-center justify-between gap-2">
+                      <span className={cn("text-lg font-bold", (d.last ?? 0) >= 70 ? "text-ok" : (d.last ?? 0) >= 45 ? "text-warn" : "text-risk")}>{d.last}%</span>
+                      {delta !== null && delta !== 0 && (
+                        <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold", delta > 0 ? "text-ok" : "text-risk")}>
+                          {delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                          {delta > 0 ? "+" : ""}{delta}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{d.runs} {d.runs === 1 ? "audit" : "audits"} · view trend</p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="grid gap-4 md:grid-cols-2">

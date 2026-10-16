@@ -252,3 +252,38 @@ Stage Summary:
 - Payments now cover three automatic rails (Stripe, PayPal, SSLCommerz) plus four manual BD gateways, all converging on the same exactly-once approval path. Monitoring has an admin-facing weekly email digest gated on SMTP. The public sample report gives prospects the full report experience pre-signup. A real hydration bug was found via dev-tools and fixed at the root (no more useSearchParams in client components).
 - Sandbox state: sslcommerz gateway disabled with empty config; digest disabled; monitor/digest settings persist; test user unchanged (99 credits, 1 monitor); admin password unchanged.
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks instead of return-url verification (needs public URL); digest test-send to a specific admin email even without user monitors; audit CSV per-domain trend export; sitemap-level content scanning depth; consider trimming Turbopack memory to avoid repeat OOM kills.
+
+---
+Task ID: 8 (cron round 6)
+Agent: Z.ai cron review
+Task: QA assessment + domain trend pages, free public site-check tool, onboarding checklist, SMTP test email
+
+Work Log (status assessment first):
+- QA: lint clean, all 17 public routes 200, dev.log clean, browser QA (desktop 1366 + mobile 390, light + dark) on home/tools/login/dashboard/audit/watchlist/report: no defects found on existing surfaces. Platform stable -> proceeded to feature work per mandate.
+
+Features added:
+- DOMAIN TREND PAGES (per-domain history hub): /dashboard/domains aggregates every audited domain (runs count, last score, verdict badge, delta vs previous completed check, "Monitored" chip). /dashboard/domains/[domain] deep-dive shows: 4 stat cards (latest score + delta, average, best, monitoring status with next-check + Manage link), an Approval score trend chart (same-day runs labeled by time), Section averages (each pillar averaged across every completed check, color-coded bars), and a scrollable Check history (date-first rows with network/mode, batch/scheduled chips, verdict, score, report link). "Run new audit" prefills the audit form; invalid domain param -> 404; domain matching includes www. variant. Wired in from: audit history domain names (now link to trend page, report opens via a new icon button), a "Domain trends" chip next to the Audit history heading, a "Your domains" strip on the dashboard overview (top 4 by score with delta arrows), and the dashboard topbar title now reads "Domain trends" on these routes.
+- PER-DOMAIN TREND CSV: /api/export/domain?domain= exports every audit for one domain oldest-first with a "Change vs previous" column (first check / +/-n), BOM + escaped, filename adaudit-trend-<domain>-<date>.csv; "Export trend CSV" button on the deep-dive page; EXPORT_AUDITS activity logged.
+- FREE PUBLIC SITE-CHECK TOOL (lead magnet): POST /api/tools/site-check (no auth) runs six real checks against any domain: HTTPS reachability + response time, title + meta description, mobile viewport, AdSense script presence, ads.txt (validates google.com pub- entry), robots.txt + sitemap.xml. Guarded by rateLimit (10/10min per IP) + assertPublicUrl SSRF guard + domain format check; 400KB body cap, 8s timeout, honest unreachable-site result. Activity TOOL_SITECHECK logged as anonymous@ip. UI: /tools page now opens with an "Instant site check" card (FREE, NO SIGNUP badge), skeleton loading, color-coded result cards (ok/warn/risk with plain-language detail), "X of 6 checks passed" summary, and a CTA straight into the register flow with ?domain= prefill (hero form convention). Verified against waitbutwhy.com (4/6 honest result) + localhost/unresolvable rejections.
+- ONBOARDING CHECKLIST: dashboard overview now leads with a Getting started card: 4 server-computed steps (first DONE audit, any watch item, any content job, 2FA enabled) with progress bar + per-step deep links; dismiss button persists via a localStorage store built on useSyncExternalStore (hydration-safe, no setState-in-effect); hides itself once all steps are done. Dashboard overview also gained the "Your domains" strip (above) and a second fullUser query for twoFactorEnabled.
+- ADMIN SMTP TEST EMAIL: POST /api/admin/settings/test-email sends a branded HTML test message through the saved SMTP settings with honest failure copy; Settings > Email (SMTP) tab gained a "Send a test email" panel (recipient input + result line). SMTP_TEST activity action logged (delivered / FAILED detail). Verified: not-configured path + 401 for non-admin.
+
+Bug found and fixed this round:
+- POST-SIGNUP AUTO-AUDIT NEVER STARTED: auth-form redirects to /dashboard/audit?domain=X&autostart=1 with the copy "Your first audit will start right after signup", but the audit page only honored ?n=1, so autostart was ignored. Audit page now accepts both sp.n and sp.autostart.
+
+Styling details:
+- Domains index rows stack vertically under sm (domain + meta, then wrapping badge/score/Trend cluster) - fixed a mobile 390px crush where verdict badges squeezed domains to "waitb...".
+- Check history rows on the deep-dive switched to date-first layout with short network/mode labels - removed mid-row ellipsis truncation.
+- Audit history: report opens via a dedicated icon button (hover ring), domain name is the trend link with a tooltip.
+- All new surfaces theme-aware (bg-card/borders/tokens), max-h-96 overflow-y-auto on the check history, aria labels throughout, skeletons for loading states.
+
+Verified this round (desktop 1366 + mobile 390, light + dark):
+- Site check end-to-end in the browser (result panel, colors, CTA), rate-limit + SSRF rejections via curl.
+- Domains index + deep-dive with real data (85% trend, section averages 90..73, monitoring card with next check Oct 23), Export trend CSV output correct (+0 deltas, first check marker).
+- Checklist renders 3/4 with real server state, dismiss works and persists.
+- SMTP test: honest not-configured message, unauth 401. Auth sweep: all dashboard + manage routes 200. Lint clean; zero unexpected errors in dev.log; browser closed after QA.
+
+Stage Summary:
+- The platform gained a per-domain memory (trend pages + trend CSV), a public free tool that feeds the signup funnel, an onboarding path for new accounts, and production-ready SMTP verification.
+- Sandbox state: no schema changes this round (no db:push needed); test user unchanged (99 credits, 1 monitor, 3 domains on record); onboarding shows 1 pending step (2FA) for the test user.
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs public URL); sitemap-level content scanning depth (deep-scan mode sampling more articles); per-domain scheduled digest opt-in; expose the site-check tool on the home hero as a secondary CTA; consider API keys for programmatic audits.

@@ -101,7 +101,9 @@ export function DashboardShell({ children, credits, userName, isAdmin }: { child
             <Menu className="h-5 w-5" />
           </button>
           <div className="hidden text-sm font-semibold text-muted-foreground lg:block">
-            {NAV.find((n) => (n.href === "/dashboard" ? pathname === n.href : pathname.startsWith(n.href)))?.label || "Dashboard"}
+            {pathname.startsWith("/dashboard/domains")
+              ? "Domain trends"
+              : NAV.find((n) => (n.href === "/dashboard" ? pathname === n.href : pathname.startsWith(n.href)))?.label || "Dashboard"}
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <NotificationBell />

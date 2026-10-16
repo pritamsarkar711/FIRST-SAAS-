@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ domain?: string; network?: string; n?: string }>;
+  searchParams: Promise<{ domain?: string; network?: string; n?: string; autostart?: string }>;
 }) {
   const session = await auth();
   const user = await db.user.findUnique({
@@ -34,7 +34,7 @@ export default async function AuditPage({
       history={history.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() }))}
       initialDomain={typeof sp.domain === "string" ? sp.domain : ""}
       initialNetwork={typeof sp.network === "string" ? sp.network : "ADSENSE"}
-      autostart={sp.n === "1"}
+      autostart={sp.n === "1" || sp.autostart === "1"}
     />
   );
 }

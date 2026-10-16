@@ -2,10 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { PenLine, Link2, BookOpen, Network, ArrowRight, CircleCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { SiteCheckTool } from "@/components/shared/site-check-tool";
 
 export const metadata = {
   title: "Tools",
-  description: "AdSense content writer, affiliate content writer, quick index and the affiliate program: everything you need after the audit.",
+  description: "Free instant site check, AdSense content writer, affiliate content writer, quick index and the affiliate program: everything you need after the audit.",
 };
 
 const TOOLS = [
@@ -46,9 +47,13 @@ export default function ToolsPage() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">The audit is step one. These tools finish the job.</h1>
           <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-            Every tool lives in your dashboard and runs on the same credit balance.
+            Start with the free instant check below, no account needed. The rest live in your dashboard and run on the same credit balance.
           </p>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pt-10 sm:px-6">
+        <SiteCheckTool />
       </section>
 
       <section className="mx-auto max-w-6xl space-y-12 px-4 py-14 sm:px-6">

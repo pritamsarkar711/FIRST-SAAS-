@@ -58,6 +58,8 @@ const ACTION_STYLES: Record<string, { label: string; tone: "ok" | "warn" | "risk
   DIGEST_SKIP: { label: "Digest skipped", tone: "warn" },
   WRITER_START: { label: "Article", tone: "neutral" },
   INDEXER_SUBMIT: { label: "Indexed", tone: "neutral" },
+  TOOL_SITECHECK: { label: "Free site check", tone: "neutral" },
+  SMTP_TEST: { label: "SMTP test email", tone: "warn" },
   CHECKOUT_SUBMIT: { label: "Order placed", tone: "neutral" },
   PAYMENT_APPROVE: { label: "Payment approved", tone: "ok" },
   PAYMENT_REJECT: { label: "Payment rejected", tone: "risk" },

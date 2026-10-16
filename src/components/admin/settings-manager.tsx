@@ -34,6 +34,8 @@ export function SettingsManager() {
   const [msg, setMsg] = useState("");
   const [testResult, setTestResult] = useState("");
   const [digestResult, setDigestResult] = useState("");
+  const [testTo, setTestTo] = useState("");
+  const [testEmailResult, setTestEmailResult] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/settings");
@@ -77,6 +79,20 @@ export function SettingsManager() {
     } else {
       setDigestResult(d.error || "Send failed.");
     }
+  }
+
+  async function sendTestEmail() {
+    if (!testTo.trim()) {
+      setTestEmailResult("Enter the address that should receive the test email.");
+      return;
+    }
+    setTestEmailResult("Sending...");
+    const res = await fetch("/api/admin/settings/test-email", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: testTo.trim() }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setTestEmailResult(d.message || d.error || "Send failed.");
   }
 
   if (!data) return <div className="h-96 animate-pulse rounded-lg bg-muted" />;
@@ -197,6 +213,25 @@ export function SettingsManager() {
             <p className="rounded-md bg-accent/60 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground sm:col-span-2">
               Used for contact form replies. Hostinger Business plans include email accounts: create one, then use smtp.hostinger.com port 465.
             </p>
+            <div className="rounded-md border border-border p-4 sm:col-span-2">
+              <h2 className="text-sm font-bold text-foreground">Send a test email</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Save the settings above first, then deliver a real message to confirm the connection works before a payment receipt depends on it.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="smtp-test-to" className="sr-only">Recipient for the test email</label>
+                <input
+                  id="smtp-test-to"
+                  type="email"
+                  value={testTo}
+                  onChange={(e) => setTestTo(e.target.value)}
+                  placeholder="you@yourdomain.com"
+                  className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-primary"
+                />
+                <Button type="button" variant="outline" onClick={sendTestEmail} className="rounded-md font-semibold">Send test email</Button>
+              </div>
+              {testEmailResult && <p className="mt-2 text-sm font-semibold text-foreground">{testEmailResult}</p>}
+            </div>
           </div>
         )}
 
