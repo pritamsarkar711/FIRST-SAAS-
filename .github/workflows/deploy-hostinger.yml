@@ -105,22 +105,30 @@ jobs:
           cd .next/standalone/node_modules/pdfkit/js
           for f in pdfkit.js pdfkit.node.mjs pdfkit.browser.mjs; do
             if [ -f "$f" ]; then
-              ext="${f##*.}"
               case "$f" in
-                *.mjs) target="pdfkit/js/standard-fonts/\\1.mjs" ;;
-                *)     target="pdfkit/js/standard-fonts/\\1.cjs" ;;
+                # pdfkit.node.mjs loads fonts via createRequire() (CJS require) - the
+                # require condition must map to .cjs (plain object exports). Mapping it
+                # to .mjs made bun return a module namespace -> "Invalid standard font
+                # data" thrown synchronously during route-module loading at boot.
+                # Only pdfkit.browser.mjs uses true ESM import().
+                pdfkit.browser.mjs) target="pdfkit/js/standard-fonts/\\1.mjs" ;;
+                *)                  target="pdfkit/js/standard-fonts/\\1.cjs" ;;
               esac
               sed -i "s|['\"]#standard-fonts/\\([A-Za-z]*\\)['\"]|'${target}'|g" "$f"
               echo "patched $f (remaining #standard-fonts refs: $(grep -c '#standard-fonts' "$f" || true))"
             fi
           done
           cd ../../../../..
-          # REAL rendering probe: forces the standard-font resolution path in both runtimes.
+          # REAL rendering probes - force the standard-font resolution path in
+          # both runtimes AND both module systems (CJS require + ESM import,
+          # the latter is what @react-pdf/renderer uses server-side).
           export DATABASE_URL="mysql://placeholder:placeholder@127.0.0.1:3306/placeholder"
-          node -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit render probe (node): OK')" || { echo '## pdfkit node render probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          node -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit CJS probe (node): OK')" || { echo '## pdfkit node CJS probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          node --input-type=module -e "const m=await import('pdfkit');const P=m.default;const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit ESM probe (node): OK')" || { echo '## pdfkit node ESM probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
           curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
           export PATH="$HOME/.bun/bin:$PATH"
-          bun -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit render probe (bun): OK')" || { echo '## pdfkit bun render probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          bun -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit CJS probe (bun): OK')" || { echo '## pdfkit bun CJS probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          bun -e "const m=await import('pdfkit');const P=m.default;const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit ESM probe (bun): OK')" || { echo '## pdfkit bun ESM probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
 
       - name: Boot smoke test (standalone must boot before shipping)
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
