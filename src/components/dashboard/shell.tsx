@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
-  LayoutDashboard, SearchCheck, PenLine, Link2, Users, Wallet, Settings, Menu, X, LogOut, Coins, ExternalLink,
+  LayoutDashboard, SearchCheck, Radar, PenLine, Link2, Users, Wallet, Settings, Menu, X, LogOut, Coins, ExternalLink,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/audit", label: "Site audit", icon: SearchCheck },
+  { href: "/dashboard/watchlist", label: "Site monitoring", icon: Radar },
   { href: "/dashboard/writer", label: "Content writer", icon: PenLine },
   { href: "/dashboard/indexer", label: "Quick index", icon: Link2 },
   { href: "/dashboard/affiliate", label: "Affiliate program", icon: Users },

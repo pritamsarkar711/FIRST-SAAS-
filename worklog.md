@@ -141,3 +141,47 @@ Stage Summary:
 - Platform now has batch audits, a complete immutable audit trail, user-visible security events, SEO sitemap + structured data, and authentic third-party brand assets.
 - Test user password remains TestPass123! (docs accurate).
 - Next priorities: API-gateway checkout sessions (Stripe/SSLCommerz) when admin keys exist; email digests for weekly audit reminders; per-page (sitemap URL) audit depth; export audit history CSV; rate-limit alerting in activity feed.
+
+---
+Task ID: 5 (cron round 3)
+Agent: Z.ai cron review
+Task: QA assessment + Site Monitoring (watchlist), CSV exports, Stripe Checkout, styling details
+
+Work Log (status assessment first):
+- QA: lint clean, all routes 200, home/dashboard/audit/report/writer/billing/affiliate verified in browser at desktop + 390px mobile, no overflow, no runtime errors. Platform stable -> proceeded to feature work per mandate.
+
+Features added:
+- SITE MONITORING (watchlist): new WatchItem model (userId+domain+target unique, intervalDays 7/14/30, active, lastAuditId/lastScore/lastRunAt/nextRunAt, runs, pausedReason) + Audit.watchItemId link. lib/watchlist.ts: startWatchRun (atomic credit deduct -> audit create -> schedule update -> background runner), addWatchItem (validate + dupe + SSRF assertPublicUrl + limit 10), tickWatchlist (lazy scheduler; user-scoped or global by key). Auto-pause with notification when credits run out ("Paused automatically... Top up and re-enable"). audit-runner now updates the watch item on DONE and sends "Scheduled check ready" notifications.
+- Watchlist APIs: GET/POST /api/watchlist (list w/ per-item sparkline history + server-truth running flag), PATCH/DELETE /api/watchlist/[id] (pause/resume resets schedule + clears pause note; interval recompute anchored to lastRunAt), POST /api/watchlist/[id]/run (check now, 409 if a check is in flight), POST/GET /api/watchlist/tick (lazy tick: session = own due items; ?key= automation key from Setting watchTickKey = all due items, for Hostinger cron; admin GET returns the key).
+- Watchlist UI: /dashboard/watchlist with sidebar entry (Radar icon). Cards show Active/Paused badge, network/mode/interval, checks run, next check relative time, last score color-coded, inline SVG sparkline of last checks, Check now / Pause-Resume / interval select / Latest report / Remove. Add form panel with per-check cost + balance, "How scheduling works" explainer. Page load fires one tick per 30-min session window (sessionStorage guard). Dashboard overview: "Monitor a domain" quick action + "Active monitoring" strip with next-run dates and Manage link.
+- CSV EXPORTS: /api/export/audits (user's own history, BOM + escaped CSV, activity logged, "Export CSV" button on audit history). /api/export/admin?type=users|payments|audits|watchlist with admin-side Export CSV buttons on Users, Payments, Audits managers.
+- STRIPE CHECKOUT (real API gateway): lib/payments.ts approvePaymentById() extracted (credits + subscription + affiliate commission + notify, exactly-once) now shared by admin approve route and Stripe verify. POST /api/billing creates Payment then (gateway.mode=API && code=stripe && sk_ key present) creates a Stripe Checkout Session via REST (no SDK) with client_reference_id=paymentId, redirects buyer. GET /api/billing filters unconfigured API gateways out of checkout. /api/billing/stripe/verify confirms payment_status=paid against Stripe, stores payment_intent, approves once. /dashboard/billing/checkout/success page + StripeVerifyClient shows confirming/confirmed/failed states; cancel flow handled. Checkout button becomes "Continue to <gateway>" for API mode. Admin gateways manager: per-provider config hints + help text (sk_ key guidance for Stripe).
+- Activity log: new actions WATCH_ADD/UPDATE/REMOVE/RUN, EXPORT_AUDITS, ADMIN_EXPORT, STRIPE_VERIFY, STRIPE_MISMATCH; new "Monitoring" tab in admin activity; labels for all new events.
+- Pricing page: plan-by-plan matrix now built dynamically from live plans (not hardcoded names), highlighted "Popular" column (bg-accent), honest rows (all features incl. monitoring + CSV export in every plan, credits are the differentiator).
+
+Bugs found and fixed this round:
+- Stale Prisma client after schema push (db.watchItem undefined, 500s): bunx prisma generate + dev server restart (recurring pitfall - noted in round 3 too).
+- logActivity() returns void (already fire-and-forget) - my new code chained .catch() on it -> TypeError 500 after row creation. Removed invalid .catch chains in 4 files.
+- Watch interval change anchored to future nextRunAt -> nonsense "in 28 days". Rewritten: nextRun = lastRunAt + interval (never earlier than now + 60s).
+- Watchlist UI used useInitialFetch destructuring that doesn't exist (hook returns void) -> runtime TypeError. Replaced with local loading state + deferred effect.
+- Radix Select no-op on same-value selection made interval verification confusing (not a product bug).
+
+Verified in browser (desktop + 390px, light + dark):
+- Watchlist: add waitbutwhy.com -> Check now -> credits 111->99, spinner, score 85% + Latest report link, notification "Scheduled check ready: waitbutwhy.com", sparkline data, pause -> PAUSED badge + Resume, interval 7<->14d with lastRun-anchored nextRun (Oct 23), remove flow present.
+- Dashboard overview: monitoring strip + quick action render with real data.
+- CSV: /api/export/audits returns proper headers+rows (monitored audit marked yes); admin watchlist export shows the item with score + next run.
+- Tick: admin GET returns automation key wt_...; POST with valid key ran=0/checked=0 (nothing due); wrong key 403.
+- Stripe: enabled with fake sk_test key -> appears at checkout as "Card / API checkout" -> "Continue to Stripe (Cards)" -> POST /api/billing called real api.stripe.com -> 401 surfaced cleanly ("Invalid API Key provided: sk_test_***e123"), payment auto-REJECTED with reason, then gateway restored to disabled/empty. Verify endpoint guard pages (missing reference) render.
+- Activity log: Monitoring tab + new badges present; watch events trail recorded.
+- Pricing: dynamic matrix renders with highlighted Standard column.
+- Lint clean; only expected 502 (Stripe fake-key test) in dev.log; all other routes 200.
+
+Stage Summary:
+- Platform now has scheduled site monitoring with self-pausing credit handling, CSV exports for users and admins, and a complete real-gateway card payment path (Stripe) alongside the manual BD rails.
+- Next priorities: SSLCommerz/PayPal session flows on top of the same approvePaymentById path; weekly email digest of monitoring results (needs SMTP configured); admin overview widget for due/failed monitors; per-plan monitoring limits (currently global 10); webhook endpoint for Stripe instead of return-url verification (needs public URL).
+
+Final verification (round 3 close-out):
+- All 14 public routes 200; dashboard + manage routes verified in browser; lint clean; zero unexpected runtime errors in dev.log.
+- Mobile 390px: watchlist page + monitor cards render with no overflow (form stacks, buttons wrap, sparkline hidden below 2 points by design).
+- Dark mode verified on watchlist, pricing matrix, activity Monitoring tab.
+- Sandbox state: 1 monitor (waitbutwhy.com, 7d, active, score 85) on the test account; Stripe gateway left disabled with empty config; automation key stored in Setting watchTickKey (admin can read it at GET /api/watchlist/tick).

@@ -45,12 +45,30 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error || "Could not place the order."); return; }
+      // API gateways (Stripe etc.) hand back a provider checkout URL.
+      if (data.redirectUrl) {
+        setDone("__redirect__");
+        window.location.href = data.redirectUrl;
+        return;
+      }
       setDone(data.message || "Order received.");
     } catch {
       setError("Network error. Try again.");
     } finally {
       setBusy(false);
     }
+  }
+
+  if (done === "__redirect__") {
+    return (
+      <div className="rounded-lg border border-border bg-card p-8 text-center">
+        <span className="mx-auto block h-11 w-11 animate-spin rounded-full border-[3px] border-border border-t-primary" aria-hidden="true" />
+        <h1 className="mt-4 text-xl font-bold text-foreground">Taking you to {gw?.name}</h1>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+          Complete the card payment on the secure {gw?.name} page. You will come straight back here when it is done.
+        </p>
+      </div>
+    );
   }
 
   if (done) {
@@ -91,7 +109,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
           </div>
         )}
 
-        {gw?.instructions && (
+        {gw?.instructions && gw.mode === "MANUAL" && (
           <div className="mt-4 rounded-md border border-border bg-secondary/60 p-4">
             <p className="text-sm font-bold text-foreground">How to pay with {gw.name}</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{gw.instructions}</p>
@@ -127,7 +145,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
           {error && <p className="mt-3 rounded-md bg-risk-soft px-3 py-2.5 text-sm font-medium text-risk" role="alert">{error}</p>}
 
           <Button type="submit" disabled={busy || !gw || !agree} className="mt-4 h-11 w-full rounded-md font-semibold">
-            <Wallet className="mr-2 h-4.5 w-4.5" /> {busy ? "Placing order..." : `Place order (${currency === "USD" ? `$${plan.priceUsd.toFixed(2)}` : `৳${priceBdt.toLocaleString()}`})`}
+            <Wallet className="mr-2 h-4.5 w-4.5" /> {busy ? "Placing order..." : gw?.mode === "API" ? `Continue to ${gw.name}` : `Place order (${currency === "USD" ? `$${plan.priceUsd.toFixed(2)}` : `৳${priceBdt.toLocaleString()}`})`}
           </Button>
         </form>
       </div>

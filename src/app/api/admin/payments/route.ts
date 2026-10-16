@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
-import { addCredits } from "@/lib/credits";
-import { siteSettings } from "@/lib/settings";
+import { approvePaymentById } from "@/lib/payments";
 import { notify } from "@/lib/notify";
 import { logActivity } from "@/lib/activity";
 
@@ -30,50 +29,14 @@ export async function POST(req: NextRequest) {
   const parsed = actionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
 
-  const payment = await db.payment.findUnique({ where: { id: parsed.data.id }, include: { user: true, plan: true } });
+  const payment = await db.payment.findUnique({ where: { id: parsed.data.id }, select: { id: true, status: true, planName: true, amount: true, gateway: true, userId: true } });
   if (!payment) return NextResponse.json({ error: "Payment not found." }, { status: 404 });
   if (payment.status !== "PENDING") return NextResponse.json({ error: `This payment is already ${payment.status.toLowerCase()}.` }, { status: 400 });
 
   if (parsed.data.action === "approve") {
-    const credits = payment.plan?.credits ?? 0;
-    await db.$transaction([
-      db.payment.update({ where: { id: payment.id }, data: { status: "APPROVED", reviewedAt: new Date(), note: parsed.data.note } }),
-      db.user.update({ where: { id: payment.userId }, data: { credits: { increment: credits } } }),
-      db.subscription.create({
-        data: {
-          userId: payment.userId,
-          planId: payment.planId,
-          planName: payment.planName,
-          credits,
-          status: "ACTIVE",
-        },
-      }),
-    ]);
-
-    if (payment.user.referredById) {
-      const site = await siteSettings();
-      const rate = site.affiliateRate ?? 20;
-      const amount = Math.round(payment.amount * (rate / 100) * 100) / 100;
-      if (amount > 0) {
-        await db.affiliateEarning.create({
-          data: { userId: payment.user.referredById, fromUserId: payment.userId, paymentId: payment.id, amount, status: "PENDING" },
-        });
-      }
-    }
-    await notify(
-      payment.userId,
-      "PAYMENT",
-      "Payment approved",
-      `Your ${payment.planName} plan payment was verified and ${credits} credits were added to your balance.`,
-      "/dashboard/billing"
-    );
-    logActivity({
-      action: "PAYMENT_APPROVE",
-      actorEmail: admin.email,
-      userId: payment.userId,
-      detail: `${payment.planName} · $${payment.amount.toFixed(2)} · ${payment.gateway} · +${credits} credits`,
-    });
-    return NextResponse.json({ ok: true, message: `Approved. ${credits} credits added.` });
+    const result = await approvePaymentById(payment.id, admin.email, parsed.data.note);
+    if (!result.ok) return NextResponse.json({ error: "Payment could not be approved." }, { status: 400 });
+    return NextResponse.json({ ok: true, message: `Approved. ${result.credits} credits added.` });
   }
 
   await db.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", reviewedAt: new Date(), note: parsed.data.note } });

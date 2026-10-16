@@ -61,6 +61,10 @@ export function UsersManager() {
               className="h-10 w-64 rounded-md border border-input bg-card pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <Button type="submit" variant="outline" className="h-10 rounded-md font-semibold">Search</Button>
+          <a href="/api/export/admin?type=users" download
+            className="inline-flex h-10 items-center rounded-md border border-border bg-card px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+            Export CSV
+          </a>
         </form>
       </div>
 

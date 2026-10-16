@@ -108,13 +108,28 @@ Produce the JSON verdict for ${networkName(audit.target)} approval readiness of 
     });
 
     const { notify } = await import("@/lib/notify");
-    await notify(
-      audit.userId,
-      "AUDIT",
-      `Audit ready: ${audit.domain}`,
-      `${networkName(audit.target)} verdict: ${report.verdict === "APPLY_NOW" ? "Apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "Wait and improve" : "High risk of rejection"} — ${report.probability}% approval probability.`,
-      `/dashboard/audit/${auditId}`
-    );
+    if (audit.watchItemId) {
+      await db.watchItem.update({
+        where: { id: audit.watchItemId },
+        data: { lastAuditId: auditId, lastScore: report.probability },
+      }).catch(() => {});
+      const score = report.probability;
+      await notify(
+        audit.userId,
+        "AUDIT",
+        `Scheduled check ready: ${audit.domain}`,
+        `Your monitored check finished with ${score}% approval probability (${report.verdict === "APPLY_NOW" ? "apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "wait and improve" : "high risk"}). The next automatic check follows the schedule.`,
+        `/dashboard/audit/${auditId}`
+      );
+    } else {
+      await notify(
+        audit.userId,
+        "AUDIT",
+        `Audit ready: ${audit.domain}`,
+        `${networkName(audit.target)} verdict: ${report.verdict === "APPLY_NOW" ? "Apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "Wait and improve" : "High risk of rejection"} — ${report.probability}% approval probability.`,
+        `/dashboard/audit/${auditId}`
+      );
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "The audit engine hit an unexpected error. Credits were refunded.";
     // refund credits on failure

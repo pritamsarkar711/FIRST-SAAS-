@@ -407,7 +407,18 @@ export function AuditWorkspace({
 
       {/* History */}
       <div>
-        <h2 className="text-lg font-bold text-foreground">Audit history</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-foreground">Audit history</h2>
+          {history.length > 0 && (
+            <a
+              href="/api/export/audits"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              download
+            >
+              <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Export CSV
+            </a>
+          )}
+        </div>
         {history.length === 0 ? (
           <EmptyState
             image="/illustrations/audit.png"

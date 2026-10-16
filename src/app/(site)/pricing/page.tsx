@@ -4,20 +4,13 @@ import { PricingCards, type PlanCard } from "@/components/shared/pricing-cards";
 import { CircleCheck } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Pricing" };
 export const dynamic = "force-dynamic";
 
-const COMPARE: [string, string, string, string, string][] = [
-  ["Site audit", "Normal, Standard, Premium modes", "Same", "Same", "Same"],
-  ["PDF report", "Included", "Included", "Included", "Included"],
-  ["Ad networks", "AdSense, Ezoic, Mediavine, Raptive", "Same", "Same", "Same"],
-  ["Content writer", "Standard mode", "Standard mode", "Standard + Premium", "Standard + Premium"],
-  ["Quick index tool", "Included", "Included", "Included", "Included"],
-  ["Affiliate program", "Included", "Included", "Included", "Included"],
-  ["Report history", "Last 10 audits", "Unlimited", "Unlimited", "Unlimited"],
-  ["Support", "Email", "Priority email", "Priority email", "Priority + chat"],
-];
+type Cell = string | { check: true };
+const CHECK: Cell = { check: true };
 
 export default async function PricingPage() {
   const [plansRaw, rate] = await Promise.all([
@@ -25,6 +18,24 @@ export default async function PricingPage() {
     getUsdBdt(),
   ]);
   const plans: PlanCard[] = plansRaw.map((p) => ({ ...p, features: JSON.parse(p.features || "[]") as string[] }));
+
+  const recommendedSlug = "standard";
+  const recommendedIdx = Math.max(plans.findIndex((p) => p.slug === recommendedSlug), 0);
+
+  // Feature matrix rows built from the live plan list.
+  const rows: [string, ...Cell[]][] = [
+    ["Audit credits", ...plans.map((p) => `${p.credits.toLocaleString()} credits`)],
+    ["Audit modes (Normal, Standard, Premium)", ...plans.map(() => CHECK)],
+    ["All four ad networks (AdSense, Ezoic, Mediavine, Raptive)", ...plans.map(() => CHECK)],
+    ["Branded PDF report", ...plans.map(() => CHECK)],
+    ["Site monitoring with automatic re-checks", ...plans.map(() => CHECK)],
+    ["Content writer (Standard and Premium)", ...plans.map(() => CHECK)],
+    ["Quick index tool", ...plans.map(() => CHECK)],
+    ["Bulk batch auditing (up to 10 sites)", ...plans.map(() => CHECK)],
+    ["Affiliate program access", ...plans.map(() => CHECK)],
+    ["CSV export of your audit history", ...plans.map(() => CHECK)],
+    ["Support", ...(["Email", "Priority email", "Priority email", "Priority + chat"].slice(0, plans.length))],
+  ];
 
   return (
     <>
@@ -54,7 +65,7 @@ export default async function PricingPage() {
               "Green, orange, red findings with explanations",
               "Branded PDF download",
               "Fix-first roadmap and verdict",
-              "Audit history and re-checks",
+              "Audit history, CSV export and re-checks",
               "WordPress publishing from the writer",
             ].map((f) => (
               <div key={f} className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">
@@ -66,26 +77,35 @@ export default async function PricingPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Plan differences</h2>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">Plan by plan</h2>
         <div className="mt-6 overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-left">
                 <th className="px-4 py-3 font-bold">Feature</th>
-                <th className="px-4 py-3 font-bold">Starter</th>
-                <th className="px-4 py-3 font-bold">Standard</th>
-                <th className="px-4 py-3 font-bold">Pro</th>
-                <th className="px-4 py-3 font-bold">Agency</th>
+                {plans.map((p, i) => (
+                  <th key={p.id} className={cn("px-4 py-3 font-bold", i === recommendedIdx && "bg-accent")}>
+                    {p.name}
+                    {i === recommendedIdx && (
+                      <span className="ml-2 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">Popular</span>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {COMPARE.map((row, i) => (
-                <tr key={i} className="border-b border-border/60 last:border-0">
+              {rows.map((row, ri) => (
+                <tr key={ri} className="border-b border-border/60 last:border-0">
                   <td className="px-4 py-3 font-semibold text-foreground">{row[0]}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row[1]}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row[2]}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row[3]}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row[4]}</td>
+                  {row.slice(1).map((cell, ci) => (
+                    <td key={ci} className={cn("px-4 py-3", ci === recommendedIdx && "bg-accent/50", typeof cell === "string" ? "text-muted-foreground" : "")}>
+                      {typeof cell === "string" ? (
+                        cell
+                      ) : (
+                        <CircleCheck className="h-4.5 w-4.5 text-ok" aria-label="Included" />
+                      )}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

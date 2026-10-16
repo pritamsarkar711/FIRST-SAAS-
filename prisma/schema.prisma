@@ -40,30 +40,57 @@ model User {
   blogPosts      BlogPost[]
   messages       ContactMessage[]
   notifications  Notification[]
+  watchItems     WatchItem[]
 }
 
 model Audit {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   domain      String
-  target      String   @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
-  mode        String   // NORMAL | STANDARD | PREMIUM
-  status      String   @default("PENDING") // PENDING | RUNNING | DONE | FAILED
-  probability Int      @default(0)
+  target      String     @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
+  mode        String // NORMAL | STANDARD | PREMIUM
+  status      String     @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  probability Int        @default(0)
   verdict     String?
   report      String? // JSON report
   signals     String? // JSON crawl signals
   error       String?
-  creditsUsed Int      @default(0)
-  shareToken  String?  @unique
+  creditsUsed Int        @default(0)
+  shareToken  String?    @unique
   batchId     String? // groups audits started together as one batch
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  watchItemId String?
+  watchItem   WatchItem? @relation(fields: [watchItemId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([userId, createdAt])
   @@index([domain, createdAt])
   @@index([batchId])
+}
+
+model WatchItem {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain       String
+  target       String    @default("ADSENSE") // ADSENSE | EZOIC | MEDIAVINE | RAPTIVE
+  mode         String    @default("STANDARD") // NORMAL | STANDARD | PREMIUM
+  intervalDays Int       @default(7)
+  active       Boolean   @default(true)
+  lastAuditId  String?
+  lastScore    Int?
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  runs         Int       @default(0)
+  pausedReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  audits Audit[]
+
+  @@unique([userId, domain, target])
+  @@index([active, nextRunAt])
 }
 
 model ActivityLog {
@@ -95,28 +122,28 @@ model Notification {
 }
 
 model Plan {
-  id          String  @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  slug        String  @unique
+  slug        String    @unique
   description String?
   priceUsd    Float
   credits     Int
-  features    String  @default("[]") // JSON string[]
+  features    String    @default("[]") // JSON string[]
   badge       String?
-  active      Boolean @default(true)
-  sortOrder   Int     @default(0)
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
   payments    Payment[]
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId    String?
   planName  String
   credits   Int
-  status    String   @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED
-  startedAt DateTime @default(now())
+  status    String    @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED
+  startedAt DateTime  @default(now())
   expiresAt DateTime?
 }
 
@@ -202,47 +229,47 @@ model AffiliateEarning {
 }
 
 model Withdrawal {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount    Float
-  method    String
-  account   String
-  status    String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | REJECTED
-  note      String?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Float
+  method     String
+  account    String
+  status     String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | REJECTED
+  note       String?
+  createdAt  DateTime  @default(now())
   reviewedAt DateTime?
 }
 
 model ContentJob {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // ADSENSE | AFFILIATE
-  mode      String   // STANDARD | PREMIUM
-  keyword   String
-  input     String? // JSON options
-  status    String   @default("PENDING") // PENDING | RUNNING | DONE | FAILED
-  result    String? // JSON article
-  images    String? // JSON image files
-  error     String?
-  creditsUsed Int    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // ADSENSE | AFFILIATE
+  mode        String // STANDARD | PREMIUM
+  keyword     String
+  input       String? // JSON options
+  status      String   @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  result      String? // JSON article
+  images      String? // JSON image files
+  error       String?
+  creditsUsed Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([userId, createdAt])
 }
 
 model IndexRequest {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  urls       String // JSON string[]
-  keyFileUrl String?
-  status     String   @default("PENDING") // PENDING | SUBMITTED | PARTIAL | FAILED
-  result     String? // JSON
-  creditsUsed Int     @default(0)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  urls        String // JSON string[]
+  keyFileUrl  String?
+  status      String   @default("PENDING") // PENDING | SUBMITTED | PARTIAL | FAILED
+  result      String? // JSON
+  creditsUsed Int      @default(0)
+  createdAt   DateTime @default(now())
 }
 
 model Setting {

@@ -63,13 +63,19 @@ export function PaymentsManager() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Payments</h1>
           <p className="mt-1 text-sm text-muted-foreground">Verify manual transactions. Approving adds credits instantly and records affiliate commission.</p>
         </div>
-        <div className="flex gap-1 rounded-md border border-border bg-secondary p-1">
-          {(["PENDING", "ALL"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={cn("rounded-sm px-3.5 py-1.5 text-sm font-bold", filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
-              {f === "PENDING" ? "Awaiting review" : "All"}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-md border border-border bg-secondary p-1">
+            {(["PENDING", "ALL"] as const).map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={cn("rounded-sm px-3.5 py-1.5 text-sm font-bold", filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                {f === "PENDING" ? "Awaiting review" : "All"}
+              </button>
+            ))}
+          </div>
+          <a href="/api/export/admin?type=payments" download
+            className="inline-flex h-10 items-center rounded-md border border-border bg-card px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+            Export CSV
+          </a>
         </div>
       </div>
 

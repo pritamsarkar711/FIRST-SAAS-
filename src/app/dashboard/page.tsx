@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import Link from "next/link";
-import { SearchCheck, PenLine, Link2, Coins, FileDown, ArrowRight, Users } from "lucide-react";
+import { SearchCheck, PenLine, Link2, Coins, FileDown, ArrowRight, Users, Radar } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCosts } from "@/lib/credits";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,12 @@ export default async function DashboardHome() {
     where: { email: session!.user!.email! },
     select: { id: true, credits: true, createdAt: true, referralCode: true },
   });
-  const [costs, audits, jobs, submissions] = await Promise.all([
+  const [costs, audits, jobs, submissions, watchItems] = await Promise.all([
     getCosts(),
     db.audit.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 15 }),
     db.contentJob.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 3 }),
     db.indexRequest.count({ where: { userId: user!.id } }),
+    db.watchItem.findMany({ where: { userId: user!.id, active: true }, orderBy: { nextRunAt: "asc" }, take: 3, select: { domain: true, nextRunAt: true, lastScore: true } }),
   ]);
 
   const doneAudits = audits.filter((a) => a.status === "DONE");
@@ -92,6 +93,7 @@ export default async function DashboardHome() {
           <div className="mt-3 space-y-2">
             {[
               { href: "/dashboard/audit", icon: SearchCheck, title: "Run a site audit", desc: `From ${costs.audit.normal} credits` },
+              { href: "/dashboard/watchlist", icon: Radar, title: "Monitor a domain", desc: "Automatic re-checks on a schedule" },
               { href: "/dashboard/writer", icon: PenLine, title: "Write an article", desc: `From ${costs.writer.standard} credits` },
               { href: "/dashboard/indexer", icon: Link2, title: "Index new posts", desc: `${costs.index} credits per batch` },
             ].map((a) => (
@@ -120,6 +122,27 @@ export default async function DashboardHome() {
           </Button>
         </div>
       </div>
+
+      {/* Monitoring strip */}
+      {watchItems.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-bold text-foreground"><Radar className="h-4.5 w-4.5 text-primary" /> Active monitoring</h2>
+            <Link href="/dashboard/watchlist" className="text-sm font-semibold text-primary hover:underline">Manage</Link>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {watchItems.map((w) => (
+              <li key={w.domain} className="rounded-md border border-border bg-secondary/40 px-3.5 py-3">
+                <p className="truncate text-sm font-semibold text-foreground">{w.domain}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {w.lastScore !== null ? <>Last score <span className={cn("font-bold", w.lastScore >= 70 ? "text-ok" : w.lastScore >= 45 ? "text-warn" : "text-risk")}>{w.lastScore}%</span> · </> : null}
+                  {w.nextRunAt ? `next check ${new Date(w.nextRunAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "unscheduled"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Recent audits */}
       <div>

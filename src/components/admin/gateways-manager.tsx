@@ -18,6 +18,21 @@ interface GatewayRow {
   config: string;
 }
 
+function configHint(code: string): string {
+  if (code === "stripe") return '{"secretKey":"sk_live_..."}';
+  if (code === "sslcommerz") return '{"store_id":"...","store_password":"..."}';
+  if (code === "paypal") return '{"clientId":"...","secret":"..."}';
+  return '{"api_key":"..."}';
+}
+
+function configHelp(code: string): string {
+  if (code === "stripe") {
+    return "Paste your Stripe secret key. When enabled, checkout redirects the buyer to Stripe's hosted card page and credits are granted automatically after verification. Use sk_test_ keys to try it safely first.";
+  }
+  if (code === "sslcommerz") return "SSLCommerz store credentials. API checkout activates once both values are present.";
+  return "JSON keys for this provider. Checkout switches to automatic API mode as soon as the required keys are present.";
+}
+
 export function GatewaysManager() {
   const [gateways, setGateways] = useState<GatewayRow[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
@@ -96,7 +111,8 @@ export function GatewaysManager() {
                   <label className="mb-1 block text-sm font-semibold text-foreground">API config (JSON keys for this provider)</label>
                   <textarea rows={4} value={draft.config} onChange={(e) => setDraft({ ...draft, config: e.target.value })}
                     className="w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    placeholder='{"store_id":"...","store_password":"..."}' />
+                    placeholder={configHint(gw.code)} />
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{configHelp(gw.code)}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => void save(gw.id)} className="rounded-md font-semibold">Save</Button>

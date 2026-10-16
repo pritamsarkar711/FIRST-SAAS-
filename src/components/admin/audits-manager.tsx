@@ -35,9 +35,15 @@ export function AuditsManager() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Audits</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Every audit run on the platform.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Audits</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Every audit run on the platform.</p>
+        </div>
+        <a href="/api/export/admin?type=audits" download
+          className="inline-flex h-10 items-center rounded-md border border-border bg-card px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+          <FileDown className="mr-2 h-4 w-4" aria-hidden="true" /> Export CSV
+        </a>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
