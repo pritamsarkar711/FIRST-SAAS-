@@ -1,0 +1,8 @@
+# Audit Form — reverse proxy to the Node.js app (managed by GitHub Actions deploy)
+# Restores to the Hostinger default page by deleting this file.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteCond %{REQUEST_URI} !\.well-known/acme-challenge
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+</IfModule>

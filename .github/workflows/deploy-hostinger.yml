@@ -1,0 +1,157 @@
+name: Deploy to Hostinger
+
+# Deploys Audit Form to the Hostinger shared (Business) server.
+# 1. Builds the Next.js standalone bundle here on GitHub's runner
+#    (the shared server never has to run a heavy build).
+# 2. Ships it over SSH (rsync) to ~/auditform/app.
+# 3. Runs scripts/deploy/on-server.sh on the server:
+#    .env, prisma db push (MySQL), process restart, docroot wiring.
+#
+# Required repository secrets:
+#   SSH_HOST, SSH_PORT, SSH_USER, SSH_PASSWORD
+#   DATABASE_URL           (mysql://user:pass@host:3306/dbname)
+#   NEXTAUTH_SECRET, NEXT_PUBLIC_SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD
+#
+# "survey" mode is read-only and prints the server environment to the log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "survey = inspect server only, deploy = full build + deploy"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - survey
+  push:
+    branches: [main]
+
+concurrency:
+  group: hostinger-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+    steps:
+      - name: Check prerequisites
+        id: pre
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_PORT" ] || [ -z "$SSH_USER" ]; then
+            echo "status=missing-ssh-config" >> "$GITHUB_OUTPUT"
+            echo "## Skipped: set SSH_HOST / SSH_PORT / SSH_USER secrets first" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$SSH_PASSWORD" ]; then
+            echo "status=missing-ssh-password" >> "$GITHUB_OUTPUT"
+            echo "## Skipped: set the SSH_PASSWORD secret first" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "status=ready" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.pre.outputs.status == 'ready'
+
+      - name: SURVEY server (read-only)
+        if: steps.pre.outputs.status == 'ready' && github.event_name == 'workflow_dispatch' && inputs.mode == 'survey'
+        run: |
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass >/dev/null 2>&1
+          export SSHPASS="$SSH_PASSWORD"
+          sshpass -e ssh -p "$SSH_PORT" \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+            -o ConnectTimeout=20 \
+            "$SSH_USER@$SSH_HOST" 'bash -s' < scripts/deploy/survey.sh
+
+      # ---------------- full deploy path (skipped in survey mode) ----------------
+      - uses: actions/setup-node@v4
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        with:
+          node-version: 20
+
+      - name: Switch Prisma schema to MySQL variant
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: cp prisma/schema.mysql.prisma prisma/schema.prisma
+
+      - name: Install dependencies
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: npm install --no-audit --no-fund
+
+      - name: Build standalone bundle
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: npm run build
+
+      - name: Write production .env
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "## FAILED: DATABASE_URL secret is not set (mysql://...)" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          cat > .env.production <<ENVFILE
+          DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}"
+          AUTH_TRUST_HOST="true"
+          NEXT_PUBLIC_SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}"
+          ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
+          ENVFILE
+
+      - name: Install sshpass + rsync
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass rsync >/dev/null 2>&1
+
+      - name: Create remote directories
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'mkdir -p ~/auditform/app/prisma && echo SSH_OK'
+
+      - name: Rsync standalone bundle to server
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          rsync -az --delete --info=stats1 -e "sshpass -e $SSHOPTS" \
+            .next/standalone/ "$SSH_USER@$SSH_HOST:auditform/app/"
+          rsync -az -e "sshpass -e $SSHOPTS" \
+            prisma/schema.mysql.prisma "$SSH_USER@$SSH_HOST:auditform/app/prisma/"
+          rsync -az -e "sshpass -e $SSHOPTS" \
+            .env.production scripts/deploy/htaccess.node scripts/deploy/survey.sh \
+            "$SSH_USER@$SSH_HOST:auditform/app/"
+
+      - name: Server-side setup, restart and health check
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'bash -s' < scripts/deploy/on-server.sh
+
+      - name: Public URL smoke test
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: |
+          URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -n "$URL" ]; then
+            CODE=000
+            for i in 1 2 3; do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 -L "$URL" || echo 000)
+              echo "public URL check (try $i): $URL -> $CODE"
+              [ "$CODE" = "200" ] && break
+              sleep 5
+            done
+            if [ "$CODE" != "200" ]; then
+              echo "## Public URL not 200 yet (last code: $CODE). The app itself may be fine - check the on-server health check above. If LiteSpeed blocks the .htaccess proxy, create the Node.js app in hPanel per DEPLOY.md." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
