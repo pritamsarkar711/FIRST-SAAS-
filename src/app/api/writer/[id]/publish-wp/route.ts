@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     let html = result.contentHtml;
     for (const img of images) {
       try {
-        const bin = await fetch(`${origin}${img.file}`).then((r) => (r.ok ? Buffer.from(await r.arrayBuffer()) : null));
+        const bin = await fetch(`${origin}${img.file}`).then(async (r) => (r.ok ? Buffer.from(await r.arrayBuffer()) : null));
         if (!bin) continue;
         const fileName = img.file.split("/").pop() || "image.png";
         const form = new FormData();
