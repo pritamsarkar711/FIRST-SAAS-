@@ -140,6 +140,9 @@ fi
 PUBLIC_URL="${PUBLIC_URL:-}"
 if [ -n "$PUBLIC_URL" ]; then
   echo "  public URL from THIS server: $(curl -s -o /dev/null -w '%{http_code}' --max-time 25 -L "$PUBLIC_URL" 2>/dev/null || echo 000)"
+  for route in /login /blog /manage/login /api/health; do
+    echo "  route $route: $(curl -s --unix-socket "$HOME/auditform/app.sock" --max-time 25 -o /dev/null -w '%{http_code}' "http://localhost$route" 2>/dev/null || echo 000)"
+  done
 fi
 echo "  ulimits: $(ulimit -a 2>/dev/null | grep -iE 'max memory|virtual memory|open files' | tr '\n' '; ')"
 echo "=== SURVEY COMPLETE ==="
