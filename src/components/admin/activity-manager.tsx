@@ -50,6 +50,8 @@ const ACTION_STYLES: Record<string, { label: string; tone: "ok" | "warn" | "risk
   ADMIN_EXPORT: { label: "Data export", tone: "warn" },
   STRIPE_VERIFY: { label: "Card payment verified", tone: "ok" },
   STRIPE_MISMATCH: { label: "Payment mismatch", tone: "risk" },
+  PAYPAL_VERIFY: { label: "PayPal payment verified", tone: "ok" },
+  PAYPAL_MISMATCH: { label: "PayPal mismatch", tone: "risk" },
   WRITER_START: { label: "Article", tone: "neutral" },
   INDEXER_SUBMIT: { label: "Indexed", tone: "neutral" },
   CHECKOUT_SUBMIT: { label: "Order placed", tone: "neutral" },
@@ -96,6 +98,19 @@ export function ActivityManager() {
     setLoading(false);
   }, []);
   useInitialFetch(load);
+
+  // Deep link support: /manage/activity?tab=monitoring selects the Monitoring tab after mount.
+  // Deferred to a macrotask so the tab switch happens after hydration, same as useInitialFetch.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (!t || t === "all") return;
+    if (!GROUPS.some((g) => g.value === t)) return;
+    const id = setTimeout(() => {
+      setGroup(t);
+      void load(t, "", 1);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [load]);
 
   function apply(g: string, query: string, p: number) {
     setGroup(g);

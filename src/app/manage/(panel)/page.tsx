@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { Users, SearchCheck, Receipt, Coins, ArrowRight, CircleCheck, CircleX, Clock } from "lucide-react";
+import { Users, SearchCheck, Receipt, Coins, ArrowRight, CircleCheck, CircleX, Clock, Radar, PauseCircle, AlarmClock } from "lucide-react";
 import { db } from "@/lib/db";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const since7d = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const [users, audits7d, auditsTotal, revenueAgg, pendingPayments, recentUsers, recentAudits] = await Promise.all([
+  const now = new Date();
+  const [users, audits7d, auditsTotal, revenueAgg, pendingPayments, recentUsers, recentAudits, activeMonitors, dueMonitors, pausedMonitors, watchFailures7d, attentionItems] = await Promise.all([
     db.user.count(),
     db.audit.count({ where: { createdAt: { gte: since7d } } }),
     db.audit.count(),
@@ -15,6 +17,16 @@ export default async function AdminDashboard() {
     db.payment.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "desc" }, take: 6, include: { user: { select: { email: true } } } }),
     db.user.findMany({ orderBy: { createdAt: "desc" }, take: 5, select: { id: true, email: true, name: true, createdAt: true, credits: true } }),
     db.audit.findMany({ orderBy: { createdAt: "desc" }, take: 5, include: { user: { select: { email: true } } } }),
+    db.watchItem.count({ where: { active: true } }),
+    db.watchItem.count({ where: { active: true, nextRunAt: { lte: now } } }),
+    db.watchItem.count({ where: { active: false, pausedReason: { not: null } } }),
+    db.audit.count({ where: { watchItemId: { not: null }, status: "FAILED", createdAt: { gte: since7d } } }),
+    db.watchItem.findMany({
+      where: { OR: [{ active: true, nextRunAt: { lte: now } }, { active: false, pausedReason: { not: null } }] },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      include: { user: { select: { email: true } } },
+    }),
   ]);
   const revenue = revenueAgg._sum.amount || 0;
 
@@ -43,6 +55,43 @@ export default async function AdminDashboard() {
             <p className="text-sm text-muted-foreground">{s.label}</p>
           </Link>
         ))}
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-bold text-foreground"><Radar className="h-4.5 w-4.5 text-primary" /> Site monitoring health</h2>
+          <Link href="/manage/activity?tab=monitoring" className="text-sm font-semibold text-primary hover:underline">Monitoring log</Link>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Active monitors", value: activeMonitors, cls: "", icon: Radar },
+            { label: "Due now", value: dueMonitors, cls: dueMonitors > 0 ? "text-warn" : "", icon: AlarmClock },
+            { label: "Auto-paused", value: pausedMonitors, cls: pausedMonitors > 0 ? "text-risk" : "", icon: PauseCircle },
+            { label: "Failed checks (7d)", value: watchFailures7d, cls: watchFailures7d > 0 ? "text-risk" : "", icon: CircleX },
+          ].map((s) => (
+            <div key={s.label} className="rounded-md border border-border bg-secondary/40 px-3.5 py-3">
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><s.icon className="h-3.5 w-3.5" aria-hidden="true" /> {s.label}</p>
+              <p className={cn("mt-1 text-xl font-bold", s.cls || "text-foreground")}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+        {attentionItems.length > 0 && (
+          <ul className="mt-3 divide-y divide-border">
+            {attentionItems.map((w) => (
+              <li key={w.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{w.domain}</p>
+                  <p className="text-xs text-muted-foreground">{w.user.email} · every {w.intervalDays}d</p>
+                </div>
+                {w.active ? (
+                  <span className="shrink-0 rounded-sm bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn">due now</span>
+                ) : (
+                  <span className="shrink-0 max-w-[55%] truncate rounded-sm bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground" title={w.pausedReason || "Paused"}>paused</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -30,14 +30,17 @@ export default async function DashboardHome() {
   const bestAudit = doneAudits.reduce<number | null>((best, a) => (best === null || a.probability > best ? a.probability : best), null);
 
   // Score history: most recent 12 completed audits, oldest first
-  const historyPoints = [...doneAudits]
-    .reverse()
-    .slice(-12)
-    .map((a) => ({
-      date: new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      score: a.probability,
-      domain: a.domain,
-    }));
+  const historyRaw = [...doneAudits].reverse().slice(-12);
+  // When every point falls on the same calendar day, label by time instead of repeating the date
+  const sameDay = historyRaw.length > 0 &&
+    new Set(historyRaw.map((a) => new Date(a.createdAt).toDateString())).size === 1;
+  const historyPoints = historyRaw.map((a) => ({
+    date: sameDay
+      ? new Date(a.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+      : new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    score: a.probability,
+    domain: a.domain,
+  }));
 
   return (
     <div className="space-y-6">

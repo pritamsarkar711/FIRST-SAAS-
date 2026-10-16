@@ -25,10 +25,10 @@ export default async function PricingPage() {
   // Feature matrix rows built from the live plan list.
   const rows: [string, ...Cell[]][] = [
     ["Audit credits", ...plans.map((p) => `${p.credits.toLocaleString()} credits`)],
+    ["Monitored domains (scheduled re-checks)", ...plans.map((p) => `${p.monitorLimit ?? 1} ${p.monitorLimit === 1 ? "domain" : "domains"}`)],
     ["Audit modes (Normal, Standard, Premium)", ...plans.map(() => CHECK)],
     ["All four ad networks (AdSense, Ezoic, Mediavine, Raptive)", ...plans.map(() => CHECK)],
     ["Branded PDF report", ...plans.map(() => CHECK)],
-    ["Site monitoring with automatic re-checks", ...plans.map(() => CHECK)],
     ["Content writer (Standard and Premium)", ...plans.map(() => CHECK)],
     ["Quick index tool", ...plans.map(() => CHECK)],
     ["Bulk batch auditing (up to 10 sites)", ...plans.map(() => CHECK)],

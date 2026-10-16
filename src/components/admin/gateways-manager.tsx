@@ -21,13 +21,16 @@ interface GatewayRow {
 function configHint(code: string): string {
   if (code === "stripe") return '{"secretKey":"sk_live_..."}';
   if (code === "sslcommerz") return '{"store_id":"...","store_password":"..."}';
-  if (code === "paypal") return '{"clientId":"...","secret":"..."}';
+  if (code === "paypal") return '{"clientId":"...","clientSecret":"...","env":"sandbox"}';
   return '{"api_key":"..."}';
 }
 
 function configHelp(code: string): string {
   if (code === "stripe") {
     return "Paste your Stripe secret key. When enabled, checkout redirects the buyer to Stripe's hosted card page and credits are granted automatically after verification. Use sk_test_ keys to try it safely first.";
+  }
+  if (code === "paypal") {
+    return 'PayPal REST app credentials from developer.paypal.com. Set "env":"sandbox" while testing and "env":"live" for real money. Checkout redirects the buyer to PayPal and credits are granted automatically after the order is captured.';
   }
   if (code === "sslcommerz") return "SSLCommerz store credentials. API checkout activates once both values are present.";
   return "JSON keys for this provider. Checkout switches to automatic API mode as soon as the required keys are present.";

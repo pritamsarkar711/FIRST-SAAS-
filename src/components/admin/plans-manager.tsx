@@ -13,13 +13,14 @@ interface PlanRow {
   description: string | null;
   priceUsd: number;
   credits: number;
+  monitorLimit: number | null;
   features: string;
   badge: string | null;
   active: boolean;
   sortOrder: number;
 }
 
-const EMPTY = { id: "", name: "", slug: "", description: "", priceUsd: 9.9, credits: 100, featuresRaw: "", badge: "", active: true, sortOrder: 5 };
+const EMPTY = { id: "", name: "", slug: "", description: "", priceUsd: 9.9, credits: 100, monitorLimit: "1", featuresRaw: "", badge: "", active: true, sortOrder: 5 };
 
 export function PlansManager() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
@@ -41,6 +42,7 @@ export function PlansManager() {
       body: JSON.stringify({
         id: form.id || undefined, name: form.name, slug: form.slug, description: form.description,
         priceUsd: Number(form.priceUsd), credits: Number(form.credits),
+        monitorLimit: form.monitorLimit === "" ? null : Number(form.monitorLimit),
         featuresRaw: form.featuresRaw, badge: form.badge, active: form.active, sortOrder: Number(form.sortOrder),
       }),
     });
@@ -82,6 +84,7 @@ export function PlansManager() {
               ["badge", "Badge (optional)", "text", "Best value"],
               ["priceUsd", "Price USD", "number", "14.9"],
               ["credits", "Credits", "number", "150"],
+              ["monitorLimit", "Monitored domains", "number", "3"],
               ["sortOrder", "Sort order", "number", "2"],
             ].map(([key, label, type, ph]) => (
               <div key={key}>
@@ -123,7 +126,8 @@ export function PlansManager() {
               <div className="flex gap-1">
                 <button onClick={() => setForm({
                   id: p.id, name: p.name, slug: p.slug, description: p.description || "",
-                  priceUsd: p.priceUsd, credits: p.credits, featuresRaw: JSON.parse(p.features || "[]").join("\n"),
+                  priceUsd: p.priceUsd, credits: p.credits, monitorLimit: p.monitorLimit === null ? "" : String(p.monitorLimit),
+                  featuresRaw: JSON.parse(p.features || "[]").join("\n"),
                   badge: p.badge || "", active: p.active, sortOrder: p.sortOrder,
                 })} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary" title="Edit">
                   <Pencil className="h-3.5 w-3.5" />
@@ -136,7 +140,7 @@ export function PlansManager() {
             <p className="mt-2 font-bold text-foreground">{p.name}</p>
             <p className="text-sm text-muted-foreground">{p.description}</p>
             <p className="mt-2 text-lg font-bold text-foreground">${p.priceUsd.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">/ {p.credits} credits</span></p>
-            <p className="mt-1 text-xs text-muted-foreground">{p.active ? "Active" : "Hidden"} · order {p.sortOrder}{p.badge ? ` · ${p.badge}` : ""}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{p.monitorLimit ?? "\u2013"} monitored {p.monitorLimit === 1 ? "domain" : "domains"} · {p.active ? "Active" : "Hidden"} · order {p.sortOrder}{p.badge ? ` · ${p.badge}` : ""}</p>
           </div>
         ))}
       </div>

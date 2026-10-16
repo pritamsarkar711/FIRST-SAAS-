@@ -65,6 +65,7 @@ export function AuditWorkspace({
   const [error, setError] = useState("");
   const [poll, setPoll] = useState<PollState | null>(null);
   const [batch, setBatch] = useState<{ batchId: string; rows: BatchRow[] } | null>(null);
+  const [scoreFilter, setScoreFilter] = useState<"all" | "ready" | "close" | "risk">("all");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const batchRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autostart = params.get("autostart") === "1";
@@ -409,15 +410,35 @@ export function AuditWorkspace({
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-foreground">Audit history</h2>
-          {history.length > 0 && (
-            <a
-              href="/api/export/audits"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-              download
-            >
-              <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Export CSV
-            </a>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { v: "all", label: "All" },
+              { v: "ready", label: "70%+" },
+              { v: "close", label: "45-69%" },
+              { v: "risk", label: "Under 45%" },
+            ].map((f) => (
+              <button
+                key={f.v} type="button"
+                onClick={() => setScoreFilter(f.v as typeof scoreFilter)}
+                aria-pressed={scoreFilter === f.v}
+                className={cn(
+                  "rounded-sm border px-2.5 py-1.5 text-xs font-bold transition-colors",
+                  scoreFilter === f.v ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+            {history.length > 0 && (
+              <a
+                href="/api/export/audits"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                download
+              >
+                <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Export CSV
+              </a>
+            )}
+          </div>
         </div>
         {history.length === 0 ? (
           <EmptyState
@@ -430,7 +451,12 @@ export function AuditWorkspace({
         ) : (
           <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
             <ul className="divide-y divide-border">
-              {history.map((h) => (
+              {history.filter((h) =>
+                scoreFilter === "all" ? true :
+                scoreFilter === "ready" ? h.status === "DONE" && h.probability >= 70 :
+                scoreFilter === "close" ? h.status === "DONE" && h.probability >= 45 && h.probability < 70 :
+                h.status === "DONE" && h.probability < 45
+              ).map((h) => (
                 <li key={h.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -476,6 +502,14 @@ export function AuditWorkspace({
                 </li>
               ))}
             </ul>
+            {history.filter((h) =>
+              scoreFilter === "all" ? true :
+              scoreFilter === "ready" ? h.status === "DONE" && h.probability >= 70 :
+              scoreFilter === "close" ? h.status === "DONE" && h.probability >= 45 && h.probability < 70 :
+              h.status === "DONE" && h.probability < 45
+            ).length === 0 && (
+              <p className="p-4 text-center text-sm text-muted-foreground">No audits match this filter.</p>
+            )}
           </div>
         )}
       </div>

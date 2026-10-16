@@ -6,9 +6,11 @@ import { db } from "@/lib/db";
 import { ReportView } from "@/components/shared/report-view";
 import { ShareButton } from "@/components/dashboard/share-button";
 import { PrintButton } from "@/components/dashboard/print-button";
+import { CopySummaryButton } from "@/components/dashboard/copy-summary-button";
 import { ComparisonPanel } from "@/components/dashboard/comparison-panel";
 import { Button } from "@/components/ui/button";
 import type { AuditReport } from "@/lib/audit-runner";
+import { networkName } from "@/lib/audit-runner";
 
 export const metadata = { title: "Audit report" };
 export const dynamic = "force-dynamic";
@@ -39,6 +41,22 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
 
   const report = JSON.parse(audit.report) as AuditReport;
   const signals = audit.signals ? JSON.parse(audit.signals) : null;
+
+  // Plain-text summary for the copy-to-clipboard button
+  const verdictWord = report.verdict === "APPLY_NOW" ? "Apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "Wait and improve" : report.verdict === "HIGH_RISK" ? "High risk" : report.verdict;
+  const summaryText = [
+    `AdAudit report for ${audit.domain} (${networkName(audit.target)})`,
+    `Approval probability: ${report.probability}% (${verdictWord})`,
+    ``,
+    report.summary,
+    ``,
+    ...report.sections.flatMap((s) => [
+      `${s.title}: ${s.score}/100`,
+      ...s.items.map((i) => `  [${i.status === "ok" ? "OK" : i.status === "warn" ? "Needs work" : "Critical"}] ${i.label}: ${i.detail}`),
+      ``,
+    ]),
+    report.criticalFixes.length ? `Critical fixes:\n${report.criticalFixes.map((f, i) => `  ${i + 1}. ${f}`).join("\n")}` : "",
+  ].join("\n").trim() + "\n";
 
   // Previous completed audit of the same domain + network, for progress comparison
   const previous = await db.audit.findFirst({
@@ -74,6 +92,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
             <a href={`/api/audit/${audit.id}/pdf`}><FileDown className="mr-2 h-4.5 w-4.5" /> PDF</a>
           </Button>
           <ShareButton auditId={audit.id} initialToken={audit.shareToken} />
+          <CopySummaryButton text={summaryText} />
           <Button asChild variant="outline" className="rounded-md font-semibold">
             <Link href="/dashboard/writer"><PenLine className="mr-2 h-4.5 w-4.5" /> Fix with writer</Link>
           </Button>

@@ -4,9 +4,30 @@ import { normalizeDomain, assertPublicUrl } from "@/lib/guard";
 import { runAudit } from "@/lib/audit-runner";
 import { notify } from "@/lib/notify";
 import { logActivity } from "@/lib/activity";
+import { getSetting } from "@/lib/settings";
 
-export const WATCH_LIMIT = 10;
+/** Fallback limit for accounts without an active plan (admin-tunable via Setting). */
+export const WATCH_LIMIT_DEFAULT = 1;
 export const INTERVALS = [7, 14, 30] as const;
+
+/**
+ * How many domains this account may monitor at once: the active plan's
+ * monitorLimit when there is one, otherwise the platform free-tier default.
+ */
+export async function getMonitorLimit(userId: string): Promise<{ limit: number; planName: string | null }> {
+  const sub = await db.subscription.findFirst({
+    where: { userId, status: "ACTIVE" },
+    orderBy: { startedAt: "desc" },
+  }).catch(() => null);
+  // planId relation is not declared on Subscription; look the plan up by id instead
+  if (sub) {
+    const plan = sub.planId ? await db.plan.findUnique({ where: { id: sub.planId } }).catch(() => null) : null;
+    const limit = plan?.monitorLimit ?? null;
+    if (limit !== null) return { limit, planName: sub.planName };
+  }
+  const free = await getSetting<number>("monitorLimitFree", WATCH_LIMIT_DEFAULT);
+  return { limit: typeof free === "number" && free >= 0 ? free : WATCH_LIMIT_DEFAULT, planName: null };
+}
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
@@ -132,7 +153,15 @@ export async function addWatchItem(
   if (!DOMAIN_RE.test(domain)) return { ok: false, error: "Enter a valid domain like example.com." };
 
   const count = await db.watchItem.count({ where: { userId } });
-  if (count >= WATCH_LIMIT) return { ok: false, error: `Monitoring is limited to ${WATCH_LIMIT} domains. Remove one to add another.` };
+  const { limit, planName } = await getMonitorLimit(userId);
+  if (count >= limit) {
+    return {
+      ok: false,
+      error: planName
+        ? `Your ${planName} plan covers ${limit} monitored ${limit === 1 ? "domain" : "domains"} and all are in use. Upgrade your plan for more slots.`
+        : `Monitoring on the free tier covers ${limit} domain. Upgrade to a plan for more monitored domains.`,
+    };
+  }
 
   const dupe = await db.watchItem.findFirst({ where: { userId, domain, target: input.target } });
   if (dupe) return { ok: false, error: `${domain} is already being monitored for ${input.target}.` };

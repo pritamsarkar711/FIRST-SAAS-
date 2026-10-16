@@ -18,6 +18,7 @@ const planSchema = z.object({
   description: z.string().trim().max(200).optional().default(""),
   priceUsd: z.number().min(0).max(100000),
   credits: z.number().int().min(0).max(1000000),
+  monitorLimit: z.number().int().min(0).max(500).nullable().optional(),
   featuresRaw: z.string().max(2000).optional().default(""),
   badge: z.string().trim().max(30).optional().default(""),
   active: z.boolean().default(true),
@@ -33,7 +34,8 @@ export async function POST(req: NextRequest) {
   const features = JSON.stringify(d.featuresRaw.split("\n").map((f) => f.trim()).filter(Boolean));
   const data = {
     name: d.name, slug: d.slug, description: d.description || null, priceUsd: d.priceUsd,
-    credits: d.credits, features, badge: d.badge || null, active: d.active, sortOrder: d.sortOrder,
+    credits: d.credits, monitorLimit: typeof d.monitorLimit === "number" ? d.monitorLimit : null,
+    features, badge: d.badge || null, active: d.active, sortOrder: d.sortOrder,
   };
 
   if (d.id) {

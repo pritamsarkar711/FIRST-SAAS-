@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/credits";
-import { addWatchItem, WATCH_LIMIT } from "@/lib/watchlist";
+import { addWatchItem, getMonitorLimit } from "@/lib/watchlist";
 
 export async function GET() {
   const session = await auth();
@@ -11,17 +11,20 @@ export async function GET() {
   const user = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true, credits: true } });
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const items = await db.watchItem.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      audits: {
-        orderBy: { createdAt: "desc" },
-        take: 8,
-        select: { id: true, probability: true, status: true, verdict: true, createdAt: true },
+  const [items, plan] = await Promise.all([
+    db.watchItem.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        audits: {
+          orderBy: { createdAt: "desc" },
+          take: 8,
+          select: { id: true, probability: true, status: true, verdict: true, createdAt: true },
+        },
       },
-    },
-  });
+    }),
+    getMonitorLimit(user.id),
+  ]);
 
   return NextResponse.json({
     items: items.map((i) => ({
@@ -41,7 +44,8 @@ export async function GET() {
       history: i.audits.filter((a) => a.status === "DONE").map((a) => ({ id: a.id, probability: a.probability, createdAt: a.createdAt.toISOString() })),
     })),
     credits: user.credits,
-    limit: WATCH_LIMIT,
+    limit: plan.limit,
+    planName: plan.planName,
   });
 }
 

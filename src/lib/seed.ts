@@ -9,44 +9,48 @@ let seedPromise: Promise<void> | null = null;
 
 const PLANS = [
   {
-    name: "Starter", slug: "starter", priceUsd: 6.9, credits: 60, sortOrder: 1,
+    name: "Starter", slug: "starter", priceUsd: 6.9, credits: 60, sortOrder: 1, monitorLimit: 1,
     description: "For a first site. Run a full audit, fix issues, re-check.",
     features: JSON.stringify([
       "60 credits",
       "6 premium audits or 12 normal audits",
+      "1 monitored domain on a schedule",
       "PDF readiness reports",
       "All audit modes",
       "Content writer access",
     ]),
   },
   {
-    name: "Standard", slug: "standard", priceUsd: 14.9, credits: 150, sortOrder: 2, badge: "Best value",
+    name: "Standard", slug: "standard", priceUsd: 14.9, credits: 150, sortOrder: 2, badge: "Best value", monitorLimit: 3,
     description: "Our recommended plan. Best balance of depth and cost.",
     features: JSON.stringify([
       "150 credits",
       "12 premium audits",
+      "3 monitored domains on a schedule",
       "10 articles with the content writer",
       "Quick index tool",
       "Priority AI queue",
     ]),
   },
   {
-    name: "Pro", slug: "pro", priceUsd: 29.9, credits: 350, sortOrder: 3,
+    name: "Pro", slug: "pro", priceUsd: 29.9, credits: 350, sortOrder: 3, monitorLimit: 10,
     description: "For bloggers running 2 or more sites seriously.",
     features: JSON.stringify([
       "350 credits",
       "Unlimited standard audits",
+      "10 monitored domains on a schedule",
       "23 premium audits",
       "Premium content writer mode",
       "Affiliate program access",
     ]),
   },
   {
-    name: "Agency", slug: "agency", priceUsd: 79, credits: 1000, sortOrder: 4,
+    name: "Agency", slug: "agency", priceUsd: 79, credits: 1000, sortOrder: 4, monitorLimit: 25,
     description: "Audit client sites and scale your publishing.",
     features: JSON.stringify([
       "1000 credits",
       "40 premium audits",
+      "25 monitored domains on a schedule",
       "Bulk auditing workflow",
       "White-labeled PDF reports",
       "Priority support",

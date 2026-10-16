@@ -21,6 +21,7 @@ export async function GET() {
       try {
         const cfg = JSON.parse(g.config || "{}") as Record<string, unknown>;
         if (g.code === "stripe") return typeof cfg.secretKey === "string" && cfg.secretKey.startsWith("sk_");
+        if (g.code === "paypal") return typeof cfg.clientId === "string" && (cfg.clientId as string).length > 8 && typeof cfg.clientSecret === "string" && (cfg.clientSecret as string).length > 8;
         return Object.keys(cfg).length > 0;
       } catch {
         return false;
@@ -41,6 +42,86 @@ const schema = z.object({
 
 interface GatewayConfigJson {
   secretKey?: string;
+  clientId?: string;
+  clientSecret?: string;
+  env?: string;
+}
+
+function paypalBase(env?: string): string {
+  return env === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+}
+
+/** OAuth2 client-credentials token for the PayPal REST API. */
+async function paypalAccessToken(base: string, clientId: string, clientSecret: string): Promise<string> {
+  const res = await fetch(`${base}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+    signal: AbortSignal.timeout(20_000),
+  });
+  const data = (await res.json().catch(() => ({}))) as { access_token?: string; error_description?: string };
+  if (!res.ok || !data.access_token) {
+    throw new Error(data.error_description?.slice(0, 200) || "PayPal rejected the API credentials.");
+  }
+  return data.access_token;
+}
+
+/** Creates a PayPal Order and returns the approval link the buyer must visit. */
+async function createPayPalOrder(opts: {
+  base: string; clientId: string; clientSecret: string;
+  planName: string; priceUsd: number; credits: number; paymentId: string; planId: string; origin: string;
+}): Promise<{ ok: true; url: string; orderId: string } | { ok: false; error: string }> {
+  try {
+    const token = await paypalAccessToken(opts.base, opts.clientId, opts.clientSecret);
+    const res = await fetch(`${opts.base}/v2/checkout/orders`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        intent: "CAPTURE",
+        purchase_units: [{
+          custom_id: opts.paymentId,
+          description: `AdAudit ${opts.planName} plan`,
+          amount: { currency_code: "USD", value: opts.priceUsd.toFixed(2), breakdown: {
+            item_total: { currency_code: "USD", value: opts.priceUsd.toFixed(2) },
+          } },
+          items: [{
+            name: `AdAudit ${opts.planName} plan`,
+            description: `${opts.credits.toLocaleString()} audit credits`,
+            quantity: "1",
+            unit_amount: { currency_code: "USD", value: opts.priceUsd.toFixed(2) },
+            category_code: "SOFTWARE",
+          }],
+        }],
+        application_context: {
+          brand_name: "AdAudit",
+          user_action: "PAY_NOW",
+          shipping_preference: "NO_SHIPPING",
+          return_url: `${opts.origin}/api/billing/paypal/verify?payment=${opts.paymentId}`,
+          cancel_url: `${opts.origin}/dashboard/billing/checkout?plan=${opts.planId}&canceled=1`,
+        },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      links?: { rel: string; href: string }[];
+      message?: string;
+      details?: { description?: string }[];
+    };
+    if (!res.ok || !data.id) {
+      const msg = data.details?.[0]?.description || data.message || "PayPal rejected the checkout request.";
+      return { ok: false, error: msg.slice(0, 200) };
+    }
+    const approve = data.links?.find((l) => l.rel === "approve" || l.rel === "payer-action");
+    if (!approve) return { ok: false, error: "PayPal did not return an approval link." };
+    return { ok: true, url: approve.href, orderId: data.id };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    return { ok: false, error: msg.startsWith("PayPal") ? msg : "Could not reach PayPal. Try again in a moment." };
+  }
 }
 
 /** Creates a Stripe Checkout Session with the REST API (no SDK, shared-hosting friendly). */
@@ -161,6 +242,40 @@ export async function POST(req: NextRequest) {
         actorEmail: user.email,
         userId: user.id,
         detail: `${plan.name} · $${plan.priceUsd.toFixed(2)} via Stripe · session ${created.sessionId.slice(0, 24)}…`,
+        ip: clientIp(req),
+      });
+      return NextResponse.json({ ok: true, redirectUrl: created.url, paymentId: payment.id });
+    }
+
+    if (gw.code === "paypal") {
+      if (!config.clientId || !config.clientSecret) {
+        return NextResponse.json({ error: "PayPal is not configured yet. Please pick another method." }, { status: 400 });
+      }
+      const origin = req.nextUrl.origin;
+      const created = await createPayPalOrder({
+        base: paypalBase(config.env),
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        planName: plan.name,
+        priceUsd: plan.priceUsd,
+        credits: plan.credits,
+        paymentId: payment.id,
+        planId: plan.id,
+        origin,
+      });
+      if (!created.ok) {
+        await db.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", note: "PayPal order failed: " + created.error } });
+        return NextResponse.json({ error: created.error }, { status: 502 });
+      }
+      await db.payment.update({
+        where: { id: payment.id },
+        data: { meta: JSON.stringify({ gatewayName: gw.name, mode: gw.mode, paypalOrderId: created.orderId }) },
+      });
+      logActivity({
+        action: "CHECKOUT_SUBMIT",
+        actorEmail: user.email,
+        userId: user.id,
+        detail: `${plan.name} · $${plan.priceUsd.toFixed(2)} via PayPal · order ${created.orderId.slice(0, 20)}…`,
         ip: clientIp(req),
       });
       return NextResponse.json({ ok: true, redirectUrl: created.url, paymentId: payment.id });

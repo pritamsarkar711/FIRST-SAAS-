@@ -122,17 +122,18 @@ model Notification {
 }
 
 model Plan {
-  id          String    @id @default(cuid())
-  name        String
-  slug        String    @unique
-  description String?
-  priceUsd    Float
-  credits     Int
-  features    String    @default("[]") // JSON string[]
-  badge       String?
-  active      Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  payments    Payment[]
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  description  String?
+  priceUsd     Float
+  credits      Int
+  monitorLimit Int? // concurrent site monitors allowed; null = not set (uses platform default)
+  features     String    @default("[]") // JSON string[]
+  badge        String?
+  active       Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  payments     Payment[]
 }
 
 model Subscription {

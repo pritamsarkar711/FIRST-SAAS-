@@ -70,7 +70,8 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
   const router = useRouter();
   const [items, setItems] = useState<WatchItem[] | null>(null);
   const [balance, setBalance] = useState(credits);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState<number | null>(null);
+  const [planName, setPlanName] = useState<string | null>(null);
 
   const [domain, setDomain] = useState("");
   const [target, setTarget] = useState("ADSENSE");
@@ -90,7 +91,8 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
       const data = await res.json();
       setItems(data.items);
       setBalance(data.credits);
-      setLimit(data.limit);
+      setLimit(typeof data.limit === "number" ? data.limit : null);
+      setPlanName(data.planName || null);
       // stop polling when no item has a check in flight
       if (pollRef.current && !data.items.some((i: WatchItem) => i.running)) {
         clearInterval(pollRef.current);
@@ -222,7 +224,11 @@ export function WatchlistManager({ credits, costs }: { credits: number; costs: {
         <div className="rounded-md border border-border bg-card px-4 py-2.5 text-sm">
           <span className="font-bold">{balance}</span> <span className="text-muted-foreground">credits</span>
           <span className="mx-2 text-border">|</span>
-          <span className="font-bold">{activeCount}</span> <span className="text-muted-foreground">of {limit} monitors active</span>
+          <span className="font-bold">{activeCount}</span> <span className="text-muted-foreground">of {limit ?? "…"} monitors active</span>
+          {planName && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{planName}</span>}
+          {limit !== null && activeCount >= limit && (
+            <Link href="/dashboard/billing" className="ml-2 font-semibold text-primary hover:underline">Upgrade</Link>
+          )}
         </div>
       </div>
 
