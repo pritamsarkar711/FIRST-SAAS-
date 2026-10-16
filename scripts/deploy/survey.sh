@@ -56,7 +56,26 @@ if [ -d "$HOME/auditform/app" ]; then
   (cd "$HOME/auditform/app" && bun -e "try{const p=require('@react-pdf/renderer');console.log('    renderer require OK:',typeof p)}catch(e){console.log('    renderer require FAIL:',e.message)}" 2>&1 | head -3)
   echo "  app process running:"; pgrep -af "auditform/app/server.js" | head -2 || echo "    (not running)"
   echo "  last app log lines:"; tail -n 6 "$HOME/auditform/app.log" 2>/dev/null | sed 's/^/    /'
+  echo "  DIRECT local health (127.0.0.1:3000):"
+  for i in 1 2 3; do
+    echo "    try $i: $(curl -s -o /dev/null -w '%{http_code}' --max-time 20 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
+    sleep 2
+  done
+  echo "  supervisor process:"; pgrep -af "auditform/run-app.sh" | head -2 || echo "    (not running)"
+  echo "  supervisor restart markers in log: $(grep -c '\[supervisor\]' "$HOME/auditform/app.log" 2>/dev/null || echo 0)"
 else
   echo "  (no ~/auditform/app yet)"
 fi
+echo
+echo "-- LiteSpeed proxy diagnostics:"
+DOCROOT=$(ls -d "$HOME"/domains/*/public_html 2>/dev/null | head -1)
+if [ -n "$DOCROOT" ] && [ -f "$DOCROOT/.htaccess" ]; then
+  echo "  .htaccess in $DOCROOT (first 15 lines):"
+  head -n 15 "$DOCROOT/.htaccess" | sed 's/^/    /'
+fi
+PUBLIC_URL="${PUBLIC_URL:-}"
+if [ -n "$PUBLIC_URL" ]; then
+  echo "  public URL from THIS server: $(curl -s -o /dev/null -w '%{http_code}' --max-time 25 -L "$PUBLIC_URL" 2>/dev/null || echo 000)"
+fi
+echo "  ulimits: $(ulimit -a 2>/dev/null | grep -iE 'max memory|virtual memory|open files' | tr '\n' '; ')"
 echo "=== SURVEY COMPLETE ==="
