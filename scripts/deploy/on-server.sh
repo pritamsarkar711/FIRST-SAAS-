@@ -84,6 +84,26 @@ else
   echo "-- pdfkit fonts: standard-fonts dir missing in standalone (unexpected)"
 fi
 
+# 2.6) Teach the standalone server to listen on the UNIX socket.
+#      The generated server.js does `parseInt(process.env.PORT, 10) || 3000`,
+#      which turns a socket path into NaN -> 3000. Patch it to pass a '/'-prefixed
+#      PORT through as a string, and patch start-server.js to use listen({path})
+#      for path values (both forms verified working under bun on this server).
+if grep -q "const currentPort = parseInt(process.env.PORT, 10) || 3000" "$APP/server.js" 2>/dev/null; then
+  sed -i "s#const currentPort = parseInt(process.env.PORT, 10) || 3000#const currentPort = (process.env.PORT \&\& String(process.env.PORT).startsWith('/')) ? process.env.PORT : (parseInt(process.env.PORT, 10) || 3000)#" "$APP/server.js"
+  echo "-- server.js: unix-socket PORT passthrough patched"
+fi
+for SJ in "$APP/node_modules/next/dist/server/lib/start-server.js" "$APP/node_modules/next/dist/esm/server/lib/start-server.js"; do
+  if [ -f "$SJ" ] && grep -q "server.listen(port, hostname);" "$SJ"; then
+    sed -i "s#server.listen(port, hostname);#server.listen(typeof process.env.PORT === 'string' \&\& process.env.PORT.startsWith('/') ? { path: process.env.PORT } : port, hostname);#g" "$SJ"
+    case "$SJ" in
+      */dist/esm/*) SJ_LABEL="esm/start-server.js" ;;
+      *)            SJ_LABEL="dist/start-server.js" ;;
+    esac
+    echo "-- $SJ_LABEL: listen({path}) patched"
+  fi
+done
+
 # 3) Crash-restarting supervisor. The app listens on the UNIX socket; a stale
 #    socket file must be removed before every start (EADDRINUSE otherwise).
 echo "-- installing supervisor: $SUP --"
@@ -119,7 +139,7 @@ setsid nohup bash "$SUP" "$RUNTIME" "$NODE_FLAGS" > /dev/null 2>&1 < /dev/null &
 # 4) Health check over the unix socket (bun cold boot can take ~170s)
 echo "-- local health check (unix socket):"
 OK=000
-for i in $(seq 1 22); do
+for i in $(seq 1 26); do
   if [ -S "$SOCK" ]; then
     OK=$(curl -s --unix-socket "$SOCK" -o /dev/null -w "%{http_code}" --max-time 30 "http://localhost/" 2>/dev/null) || OK=000
   else
