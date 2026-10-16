@@ -45,4 +45,18 @@ pgrep -af "node" 2>/dev/null | head -6 || echo "  (none)"
 echo
 echo "-- listening ports of this user:"
 ss -tlnp 2>/dev/null | head -10 || netstat -tlnp 2>/dev/null | head -10 || echo "  (ss/netstat not available)"
+
+echo "-- app dir diagnostics:"
+if [ -d "$HOME/auditform/app" ]; then
+  echo "  pdfkit standard-fonts files:"
+  ls "$HOME/auditform/app/node_modules/pdfkit/js/standard-fonts/" 2>/dev/null | head -6 || echo "    (missing)"
+  echo "  pdfkit package.json present: $([ -f "$HOME/auditform/app/node_modules/pdfkit/package.json" ] && echo yes || echo NO)"
+  echo "  runtime require test (bun):"
+  (cd "$HOME/auditform/app" && bun -e "try{const p=require('pdfkit');console.log('    pdfkit require OK:',typeof p)}catch(e){console.log('    pdfkit require FAIL:',e.message)}" 2>&1 | head -3)
+  (cd "$HOME/auditform/app" && bun -e "try{const p=require('@react-pdf/renderer');console.log('    renderer require OK:',typeof p)}catch(e){console.log('    renderer require FAIL:',e.message)}" 2>&1 | head -3)
+  echo "  app process running:"; pgrep -af "auditform/app/server.js" | head -2 || echo "    (not running)"
+  echo "  last app log lines:"; tail -n 6 "$HOME/auditform/app.log" 2>/dev/null | sed 's/^/    /'
+else
+  echo "  (no ~/auditform/app yet)"
+fi
 echo "=== SURVEY COMPLETE ==="
