@@ -92,7 +92,7 @@ jobs:
 
       - name: Generate DB init SQL (applied with the mysql client on the server)
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
-        run: npx prisma migrate diff --from-empty --to-schema-dat prisma/schema.mysql.prisma --script > db-init.sql && wc -l db-init.sql
+        run: npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.mysql.prisma --script > db-init.sql && wc -l db-init.sql
 
       - name: Write production .env
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
