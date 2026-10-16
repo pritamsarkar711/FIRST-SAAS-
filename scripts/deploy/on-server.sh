@@ -32,16 +32,18 @@ if [ -f .env.production ]; then
 fi
 [ -f .env ] || { echo "FATAL: .env missing"; exit 1; }
 
-# 2) Push Prisma schema to MySQL (server-side: MySQL is reachable from here)
-echo "-- prisma db push (MySQL) --"
+# 2) Apply the database schema with the mysql client (no prisma CLI needed:
+#    the runner pre-generates db-init.sql; the MariaDB client is on this server)
+echo "-- database schema (MySQL) --"
 set -a; . ./.env; set +a
-if command -v bun >/dev/null 2>&1; then
-  # bun has no separate bunx binary on this server - use "bun x"
-  bun x --yes prisma@6.11.1 db push --schema prisma/schema.mysql.prisma --skip-generate \
-    && echo "DB PUSH: OK" \
-    || echo "DB PUSH: FAILED (check DATABASE_URL / MySQL creds)"
+if command -v mysql >/dev/null 2>&1 && [ -f db-init.sql ] && [ -n "${DB_NAME:-}" ] && [ -n "${DB_USER:-}" ]; then
+  MYSQL_PWD="${DB_PASSWORD:-}" mysql -h "${DB_HOST:-localhost}" -u "$DB_USER" "$DB_NAME" --force < db-init.sql > /tmp/dbinit.log 2>&1
+  EXISTING=$(grep -icE "already exists" /tmp/dbinit.log 2>/dev/null || true)
+  OTHER_ERRORS=$(grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -vicE "already exists" || true)
+  echo "DB INIT: applied (pre-existing objects skipped: ${EXISTING:-0}, real errors: ${OTHER_ERRORS:-0})"
+  grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -viE "already exists" | head -4 || true
 else
-  echo "DB PUSH: SKIPPED (bun not found)"
+  echo "DB INIT: SKIPPED (mysql client, db-init.sql or DB creds missing)"
 fi
 
 # 3) (Re)start the app server

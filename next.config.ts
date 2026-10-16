@@ -13,13 +13,40 @@ const nextConfig: NextConfig = {
     "/**": [
       "./node_modules/.prisma/**",
       "./node_modules/@prisma/client/**",
-      // @react-pdf/pdfkit resolve fonts at runtime through package "#"-imports
-      // (pdfkit "#standard-fonts/*" -> js/data/*.afm) which file tracing cannot
-      // see - include both packages so PDF generation works in standalone mode.
+      // The PDF stack is externalized (see serverExternalPackages) and loads
+      // from node_modules at runtime - ship every package it can require.
       "./node_modules/pdfkit/**",
       "./node_modules/@react-pdf/**",
+      "./node_modules/fontkit/**",
+      "./node_modules/@babel/runtime/**",
+      "./node_modules/object-assign/**",
+      "./node_modules/prop-types/**",
+      "./node_modules/queue/**",
+      "./node_modules/is-url/**",
+      "./node_modules/emoji-regex-xs/**",
+      "./node_modules/yoga-layout/**",
+      "./node_modules/bidi-js/**",
+      "./node_modules/unicode-properties/**",
+      "./node_modules/color-string/**",
+      "./node_modules/hsl-to-hex/**",
+      "./node_modules/media-engine/**",
+      "./node_modules/postcss-value-parser/**",
+      "./node_modules/jay-peg/**",
+      "./node_modules/png-js/**",
+      "./node_modules/@swc/helpers/**",
+      "./node_modules/brotli/**",
+      "./node_modules/clone/**",
+      "./node_modules/dfa/**",
+      "./node_modules/fast-deep-equal/**",
+      "./node_modules/restructure/**",
+      "./node_modules/tiny-inflate/**",
+      "./node_modules/unicode-trie/**",
     ],
   },
+  // pdfkit resolves its standard fonts through package "#"-imports that
+  // bundlers cannot inline; keep the PDF stack external so the real packages
+  // (which we ship via outputFileTracingIncludes) resolve everything.
+  serverExternalPackages: ["@react-pdf/renderer", "pdfkit", "fontkit"],
   reactStrictMode: false,
   poweredByHeader: false,
   devIndicators: false,

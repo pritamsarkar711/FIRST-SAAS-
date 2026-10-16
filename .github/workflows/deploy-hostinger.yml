@@ -90,6 +90,10 @@ jobs:
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
         run: npm run build
 
+      - name: Generate DB init SQL (applied with the mysql client on the server)
+        if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
+        run: npx prisma migrate diff --from-empty --to-schema-dat prisma/schema.mysql.prisma --script > db-init.sql && wc -l db-init.sql
+
       - name: Write production .env
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
         run: |
@@ -104,6 +108,10 @@ jobs:
           NEXT_PUBLIC_SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
           ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}"
           ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_USER="${{ secrets.DB_USER }}"
+          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          DB_NAME="${{ secrets.DB_NAME }}"
           ENVFILE
 
       - name: Install sshpass + rsync
@@ -129,7 +137,7 @@ jobs:
           rsync -az -e "sshpass -e $SSHOPTS" \
             prisma/schema.mysql.prisma "$SSH_USER@$SSH_HOST:auditform/app/prisma/"
           rsync -az -e "sshpass -e $SSHOPTS" \
-            .env.production scripts/deploy/htaccess.node scripts/deploy/survey.sh \
+            .env.production db-init.sql scripts/deploy/htaccess.node scripts/deploy/survey.sh \
             "$SSH_USER@$SSH_HOST:auditform/app/"
 
       - name: Server-side setup, restart and health check
