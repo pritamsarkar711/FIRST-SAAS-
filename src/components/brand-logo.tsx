@@ -40,7 +40,7 @@ export function BrandLogo({
       alt={`${name} logo`}
       width={size * 2.2}
       height={size * 1.15}
-      className={cn("object-contain", className)}
+      className={cn("rounded-sm bg-white object-contain p-0.5 dark:bg-white/90", className)}
       style={{ height: size * 1.15, width: "auto" }}
       onError={() => setFailed(true)}
       loading="lazy"

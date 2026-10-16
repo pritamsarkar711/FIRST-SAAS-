@@ -40,7 +40,7 @@ export function AuditsManager() {
         <p className="mt-1 text-sm text-muted-foreground">Every audit run on the platform.</p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-white">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/60 text-left">

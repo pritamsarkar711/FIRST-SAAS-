@@ -43,12 +43,12 @@ export function HeroAuditForm({ compact = false }: { compact?: boolean }) {
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
             aria-label="Your website domain"
-            className="h-12 w-full rounded-md border border-input bg-white pl-10 pr-3 text-[15px] text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-12 w-full rounded-md border border-input bg-card pl-10 pr-3 text-[15px] text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="sm:w-40">
           <Select value={network} onValueChange={setNetwork}>
-            <SelectTrigger className="h-12 w-full rounded-md bg-white text-[15px]" aria-label="Ad network to check">
+            <SelectTrigger className="h-12 w-full rounded-md bg-card text-[15px]" aria-label="Ad network to check">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

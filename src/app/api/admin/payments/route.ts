@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { addCredits } from "@/lib/credits";
 import { siteSettings } from "@/lib/settings";
+import { notify } from "@/lib/notify";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -58,9 +59,23 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+    await notify(
+      payment.userId,
+      "PAYMENT",
+      "Payment approved",
+      `Your ${payment.planName} plan payment was verified and ${credits} credits were added to your balance.`,
+      "/dashboard/billing"
+    );
     return NextResponse.json({ ok: true, message: `Approved. ${credits} credits added.` });
   }
 
   await db.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", reviewedAt: new Date(), note: parsed.data.note } });
+  await notify(
+    payment.userId,
+    "PAYMENT",
+    "Payment could not be verified",
+    `Your ${payment.planName} order was rejected. ${parsed.data.note ? "Reason: " + parsed.data.note : "Contact support if you believe this is a mistake."}`,
+    "/dashboard/billing"
+  );
   return NextResponse.json({ ok: true, message: "Payment rejected." });
 }

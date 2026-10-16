@@ -69,7 +69,7 @@ export function GatewaysManager() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {gateways.map((gw) => (
-          <div key={gw.id} className={cn("rounded-lg border bg-white p-5", gw.enabled ? "border-primary/50" : "border-border")}>
+          <div key={gw.id} className={cn("rounded-lg border bg-card p-5", gw.enabled ? "border-primary/50" : "border-border")}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <BrandLogo name={gw.name} src={gw.logo} size={26} />
@@ -80,7 +80,7 @@ export function GatewaysManager() {
               </div>
               <button onClick={() => void toggle(gw)} role="switch" aria-checked={gw.enabled}
                 className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", gw.enabled ? "bg-primary" : "bg-input")} aria-label={`${gw.enabled ? "Disable" : "Enable"} ${gw.name}`}>
-                <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", gw.enabled ? "left-[22px]" : "left-0.5")} />
+                <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-all", gw.enabled ? "left-[22px]" : "left-0.5")} />
               </button>
             </div>
 
@@ -89,13 +89,13 @@ export function GatewaysManager() {
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-foreground">Checkout instructions shown to users</label>
                   <textarea rows={3} value={draft.instructions} onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
-                    className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     placeholder="Send money to 01712-345678, then submit the TrxID here..." />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-foreground">API config (JSON keys for this provider)</label>
                   <textarea rows={4} value={draft.config} onChange={(e) => setDraft({ ...draft, config: e.target.value })}
-                    className="w-full rounded-md border border-input bg-white px-3 py-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     placeholder='{"store_id":"...","store_password":"..."}' />
                 </div>
                 <div className="flex gap-2">

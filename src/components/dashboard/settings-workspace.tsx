@@ -74,7 +74,7 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
       </div>
 
       {/* Profile */}
-      <form onSubmit={saveProfile} className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <form onSubmit={saveProfile} className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-bold text-foreground"><UserRound className="h-4.5 w-4.5 text-primary" /> Profile</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -93,7 +93,7 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
       </form>
 
       {/* Password */}
-      <form onSubmit={savePassword} className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <form onSubmit={savePassword} className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-bold text-foreground"><KeyRound className="h-4.5 w-4.5 text-primary" /> Password</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -112,7 +112,7 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
       </form>
 
       {/* 2FA */}
-      <div className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-bold text-foreground"><ShieldCheck className="h-4.5 w-4.5 text-primary" /> Two factor authentication</h2>
         {user.twoFactorEnabled ? (
           <form onSubmit={disable2fa} className="mt-4 max-w-md">

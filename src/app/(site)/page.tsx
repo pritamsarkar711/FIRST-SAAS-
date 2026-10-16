@@ -141,7 +141,7 @@ export default async function HomePage() {
       <section className="dotgrid border-b border-border">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-20">
           <div className="fade-up">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-sm border border-border bg-white px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-primary">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-sm border border-border bg-card px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-primary">
               For blog publishers
             </p>
             <h1 className="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-foreground sm:text-[2.6rem]">
@@ -167,15 +167,15 @@ export default async function HomePage() {
       </section>
 
       {/* Network trust bar */}
-      <section className="border-b border-border bg-white">
+      <section className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-center sm:gap-10 sm:px-6">
           <p className="text-sm font-semibold text-muted-foreground">Readiness checks for:</p>
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {[
               { name: "Google AdSense", src: "/logos/adsense.svg" },
-              { name: "Ezoic", src: "/logos/ezoic.svg" },
-              { name: "Mediavine", src: "/logos/mediavine.svg" },
-              { name: "Raptive", src: "/logos/raptive.svg" },
+              { name: "Ezoic", src: "/logos/ezoic.png" },
+              { name: "Mediavine", src: "/logos/mediavine.png" },
+              { name: "Raptive", src: "/logos/raptive.png" },
             ].map((n) => (
               <div key={n.name} className="flex items-center gap-2 opacity-90">
                 <BrandLogo name={n.name} src={n.src} size={22} />
@@ -196,7 +196,7 @@ export default async function HomePage() {
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-lg border border-border bg-white p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.07)]">
+            <div key={f.title} className="rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.07)]">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-primary">
                 <f.icon className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -213,8 +213,8 @@ export default async function HomePage() {
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">How it works</h2>
           <div className="mt-10 grid gap-8 lg:grid-cols-3">
             {STEPS.map((s) => (
-              <div key={s.title} className="rounded-lg border border-border bg-white p-5">
-                <div className="relative h-40 overflow-hidden rounded-md border border-border bg-white">
+              <div key={s.title} className="rounded-lg border border-border bg-card p-5">
+                <div className="relative h-40 overflow-hidden rounded-md border border-border bg-card">
                   <Image src={s.img} alt={s.title} fill sizes="(max-width: 1024px) 100vw, 380px" className="object-cover" />
                 </div>
                 <h3 className="mt-4 font-bold text-foreground">{s.title}</h3>
@@ -240,7 +240,7 @@ export default async function HomePage() {
                 { dot: "bg-warn", t: "Orange means improve", d: "Not a violation, but weak enough to hurt your odds. Worth fixing." },
                 { dot: "bg-risk", t: "Red means fix", d: "A real risk that commonly causes rejection. Handle these first." },
               ].map((r) => (
-                <div key={r.t} className="flex items-start gap-3 rounded-md border border-border bg-white p-4">
+                <div key={r.t} className="flex items-start gap-3 rounded-md border border-border bg-card p-4">
                   <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${r.dot}`} aria-hidden="true" />
                   <div>
                     <p className="font-bold text-foreground">{r.t}</p>
@@ -251,7 +251,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="overflow-hidden rounded-lg border border-border">
-            <Image src="/illustrations/report.png" alt="Sample audit report with green, orange and red findings" width={1024} height={1024} className="h-auto w-full bg-white" />
+            <Image src="/illustrations/report.png" alt="Sample audit report with green, orange and red findings" width={1024} height={1024} className="h-auto w-full bg-card" />
           </div>
         </div>
       </section>
@@ -265,7 +265,7 @@ export default async function HomePage() {
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             {TOOLS.map((t) => (
-              <Link key={t.title} href={t.href} className="group flex gap-4 rounded-lg border border-border bg-white p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
+              <Link key={t.title} href={t.href} className="group flex gap-4 rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
                 <div className="hidden h-24 w-32 shrink-0 overflow-hidden rounded-md border border-border sm:block">
                   <Image src={t.img} alt="" width={128} height={96} className="h-full w-full object-cover" />
                 </div>
@@ -308,7 +308,7 @@ export default async function HomePage() {
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {posts.map((p) => (
-                <Link key={p.id} href={`/blog/${p.slug}`} className="group rounded-lg border border-border bg-white p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
+                <Link key={p.id} href={`/blog/${p.slug}`} className="group rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
                   </p>

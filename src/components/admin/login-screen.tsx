@@ -47,7 +47,7 @@ function AdminLoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-border bg-white p-6 sm:p-7">
+    <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 sm:p-7">
       <div className="flex items-center gap-2.5">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <ShieldCheck className="h-5 w-5" />
@@ -60,17 +60,17 @@ function AdminLoginForm() {
       <form onSubmit={submit} className="mt-5" noValidate>
         <label htmlFor="m-email" className="mb-1.5 block text-sm font-semibold text-foreground">Admin email</label>
         <input id="m-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="admin@adaudit.app" />
         <label htmlFor="m-pass" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Password</label>
         <input id="m-pass" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Password" />
         {needs2fa && (
           <>
             <label htmlFor="m-code" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Two factor code</label>
             <input id="m-code" type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} autoComplete="one-time-code"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="000000" />
           </>
         )}

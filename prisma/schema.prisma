@@ -39,6 +39,7 @@ model User {
   withdrawals    Withdrawal[]
   blogPosts      BlogPost[]
   messages       ContactMessage[]
+  notifications  Notification[]
 }
 
 model Audit {
@@ -55,10 +56,26 @@ model Audit {
   signals     String? // JSON crawl signals
   error       String?
   creditsUsed Int      @default(0)
+  shareToken  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId, createdAt])
+  @@index([domain, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // AUDIT | PAYMENT | WITHDRAWAL | MESSAGE | SYSTEM
+  title     String
+  body      String
+  link      String? // in-app destination
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
 }
 
 model Plan {

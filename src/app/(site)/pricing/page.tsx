@@ -57,7 +57,7 @@ export default async function PricingPage() {
               "Audit history and re-checks",
               "WordPress publishing from the writer",
             ].map((f) => (
-              <div key={f} className="flex items-center gap-2.5 rounded-md border border-border bg-white px-4 py-3 text-sm font-medium text-foreground">
+              <div key={f} className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">
                 <CircleCheck className="h-4.5 w-4.5 shrink-0 text-ok" /> {f}
               </div>
             ))}

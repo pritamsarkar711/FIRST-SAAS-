@@ -58,7 +58,7 @@ export function UsersManager() {
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name"
-              className="h-10 w-64 rounded-md border border-input bg-white pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-10 w-64 rounded-md border border-input bg-card pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <Button type="submit" variant="outline" className="h-10 rounded-md font-semibold">Search</Button>
         </form>
@@ -66,7 +66,7 @@ export function UsersManager() {
 
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> {msg}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-white">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full min-w-[860px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/60 text-left">

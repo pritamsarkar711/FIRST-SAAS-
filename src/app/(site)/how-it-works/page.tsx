@@ -53,7 +53,7 @@ export default function HowItWorksPage() {
           {STEPS.map((s, i) => (
             <div key={s.title} className={`grid items-center gap-8 lg:grid-cols-2 ${i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""}`}>
               <div className="overflow-hidden rounded-lg border border-border">
-                <Image src={s.img} alt={s.alt} width={1344} height={768} className="h-auto w-full bg-white" />
+                <Image src={s.img} alt={s.alt} width={1344} height={768} className="h-auto w-full bg-card" />
               </div>
               <div>
                 <p className="text-sm font-bold uppercase tracking-wide text-primary">Step {i + 1}</p>
@@ -71,11 +71,11 @@ export default function HowItWorksPage() {
           <div className="mx-auto mt-8 grid max-w-3xl gap-3 sm:grid-cols-2">
             {[
               { name: "Google AdSense", src: "/logos/adsense.svg", note: "First approval and re-applications" },
-              { name: "Ezoic", src: "/logos/ezoic.svg", note: "No minimum traffic, content quality focused" },
-              { name: "Mediavine", src: "/logos/mediavine.svg", note: "Roughly 50k sessions per month expected" },
-              { name: "Raptive", src: "/logos/raptive.svg", note: "Roughly 100k monthly pageviews expected" },
+              { name: "Ezoic", src: "/logos/ezoic.png", note: "No minimum traffic, content quality focused" },
+              { name: "Mediavine", src: "/logos/mediavine.png", note: "Roughly 50k sessions per month expected" },
+              { name: "Raptive", src: "/logos/raptive.png", note: "Roughly 100k monthly pageviews expected" },
             ].map((n) => (
-              <div key={n.name} className="flex items-center gap-3 rounded-md border border-border bg-white p-4">
+              <div key={n.name} className="flex items-center gap-3 rounded-md border border-border bg-card p-4">
                 <BrandLogo name={n.name} src={n.src} size={24} />
                 <div>
                   <p className="font-bold text-foreground">{n.name}</p>
@@ -98,7 +98,7 @@ export default function HowItWorksPage() {
             "PDF report you can keep and compare",
             "Credits never expire",
           ].map((t) => (
-            <div key={t} className="flex items-center gap-2.5 rounded-md border border-border bg-white px-4 py-3.5 text-sm font-medium">
+            <div key={t} className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-3.5 text-sm font-medium">
               <CircleCheck className="h-4.5 w-4.5 shrink-0 text-ok" /> {t}
             </div>
           ))}

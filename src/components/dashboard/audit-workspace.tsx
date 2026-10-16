@@ -7,6 +7,7 @@ import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScoreRing, VerdictBadge, StatusIcon } from "@/components/shared/report-ui";
+import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
 interface StartResponse { ok?: boolean; id?: string; error?: string; needCredits?: number }
@@ -125,7 +126,7 @@ export function AuditWorkspace({
   return (
     <div className="space-y-8">
       {/* Form card */}
-      <form onSubmit={submit} className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h1 className="text-lg font-bold text-foreground">New site audit</h1>
         <p className="mt-1 text-sm text-muted-foreground">Crawls your real site, then reviews it for {NETWORKS.find((n) => n.value === network)?.label} readiness.</p>
 
@@ -135,7 +136,7 @@ export function AuditWorkspace({
             <input
               id="a-domain" type="text" inputMode="url" value={domain} onChange={(e) => setDomain(e.target.value)}
               placeholder="yourblog.com" autoComplete="url"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
@@ -156,7 +157,7 @@ export function AuditWorkspace({
               onClick={() => setMode(m.value)}
               className={cn(
                 "relative rounded-md border p-3.5 text-left transition-colors",
-                mode === m.value ? "border-primary bg-accent" : "border-border bg-white hover:border-input"
+                mode === m.value ? "border-primary bg-accent" : "border-border bg-card hover:border-input"
               )}
             >
               {m.badge && <span className="absolute -top-2 right-3 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{m.badge}</span>}
@@ -186,7 +187,7 @@ export function AuditWorkspace({
 
       {/* Live progress */}
       {poll && (
-        <div className="fade-up rounded-lg border border-border bg-white p-5 sm:p-6">
+        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6">
           {poll.status === "FAILED" ? (
             <div>
               <div className="flex items-center gap-2.5">
@@ -221,12 +222,15 @@ export function AuditWorkspace({
       <div>
         <h2 className="text-lg font-bold text-foreground">Audit history</h2>
         {history.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-border bg-secondary/40 p-8 text-center">
-            <SearchCheck className="mx-auto h-8 w-8 text-muted-foreground/50" />
-            <p className="mt-2 text-sm text-muted-foreground">No audits yet. Run your first one above.</p>
-          </div>
+          <EmptyState
+            image="/illustrations/audit.png"
+            title="No audits yet"
+            body="Your first audit takes about two minutes: pick a domain, choose a mode, and the engine does the rest."
+            cta="Run your first audit"
+            href="/dashboard/audit"
+          />
         ) : (
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
             <ul className="divide-y divide-border">
               {history.map((h) => (
                 <li key={h.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">

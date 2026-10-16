@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/shared/theme";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ export function SiteHeader({ siteName }: { siteName: string }) {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" aria-label={`${siteName} home`}>
           <Logo name={siteName} />
@@ -44,6 +45,7 @@ export function SiteHeader({ siteName }: { siteName: string }) {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
+          <ThemeToggle />
           <Button asChild variant="ghost" size="sm" className="font-semibold">
             <Link href="/login">Sign in</Link>
           </Button>
@@ -54,7 +56,7 @@ export function SiteHeader({ siteName }: { siteName: string }) {
 
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-white text-foreground lg:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-card text-foreground lg:hidden"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-label={open ? "Close menu" : "Open menu"}
@@ -64,7 +66,7 @@ export function SiteHeader({ siteName }: { siteName: string }) {
       </div>
 
       {open && (
-        <div className="border-t border-border bg-white lg:hidden">
+        <div className="border-t border-border bg-card lg:hidden">
           <nav className="mx-auto max-w-6xl px-4 py-3" aria-label="Mobile navigation">
             {NAV.map((item) => (
               <Link
@@ -76,7 +78,11 @@ export function SiteHeader({ siteName }: { siteName: string }) {
                 {item.label}
               </Link>
             ))}
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span className="px-3 text-sm font-medium text-muted-foreground">Appearance</span>
+              <ThemeToggle />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <Button asChild variant="outline" className="h-11">
                 <Link href="/login" onClick={() => setOpen(false)}>Sign in</Link>
               </Button>

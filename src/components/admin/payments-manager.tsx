@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CircleCheck, CircleX, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/shared/empty-state";
 
 interface PaymentRow {
   id: string;
@@ -75,12 +76,14 @@ export function PaymentsManager() {
       {msg && <p className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-primary">{msg}</p>}
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-10 text-center">
-          <Receipt className="mx-auto h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-2 text-sm text-muted-foreground">No payments in this view.</p>
-        </div>
+        <EmptyState
+          image="/illustrations/monetize.png"
+          title="No payments in this view"
+          body={filter === "PENDING" ? "Manual payment orders waiting for verification will appear here." : "Payments show up here as soon as customers order plans."}
+          size="sm"
+        />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-white">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-left">

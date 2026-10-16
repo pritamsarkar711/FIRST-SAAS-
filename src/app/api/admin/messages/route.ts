@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { notify } from "@/lib/notify";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
       where: { id: msg.id },
       data: { reply: parsed.data.reply || "", status: "REPLIED", repliedAt: new Date() },
     });
+    if (msg.userId) {
+      await notify(msg.userId, "MESSAGE", "Support replied", `We replied to your "${msg.reason}" message. Check the answer from support.`, "/contact");
+    }
     // Email the reply if SMTP is configured (gracefully skipped otherwise)
     try {
       const { getSetting, SMTP_DEFAULTS } = await import("@/lib/settings");

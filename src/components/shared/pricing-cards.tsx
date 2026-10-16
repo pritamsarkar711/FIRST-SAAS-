@@ -46,7 +46,7 @@ export function PricingCards({ plans, rate }: { plans: PlanCard[]; rate: number 
             <div
               key={p.id}
               className={cn(
-                "relative flex flex-col rounded-lg border bg-white p-5",
+                "relative flex flex-col rounded-lg border bg-card p-5",
                 p.badge ? "border-primary shadow-[0_2px_10px_rgba(13,107,77,0.12)]" : "border-border"
               )}
             >

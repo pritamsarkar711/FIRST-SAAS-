@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Open_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/shared/theme";
 import { existsSync } from "fs";
 import path from "path";
 
@@ -56,7 +57,7 @@ export default function RootLayout({
         ) : null}
       </head>
       <body className={`${openSans.variable} antialiased bg-background text-foreground min-h-screen flex flex-col`}>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <Toaster />
       </body>
     </html>

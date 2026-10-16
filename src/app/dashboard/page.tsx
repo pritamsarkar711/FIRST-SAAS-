@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { getCosts } from "@/lib/credits";
 import { Button } from "@/components/ui/button";
 import { VerdictBadge } from "@/components/shared/report-ui";
+import { ScoreHistoryChart } from "@/components/dashboard/score-history-chart";
+import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Overview" };
@@ -18,13 +20,23 @@ export default async function DashboardHome() {
   });
   const [costs, audits, jobs, submissions] = await Promise.all([
     getCosts(),
-    db.audit.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 5 }),
+    db.audit.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 15 }),
     db.contentJob.findMany({ where: { userId: user!.id }, orderBy: { createdAt: "desc" }, take: 3 }),
     db.indexRequest.count({ where: { userId: user!.id } }),
   ]);
 
   const doneAudits = audits.filter((a) => a.status === "DONE");
   const bestAudit = doneAudits.reduce<number | null>((best, a) => (best === null || a.probability > best ? a.probability : best), null);
+
+  // Score history: most recent 12 completed audits, oldest first
+  const historyPoints = [...doneAudits]
+    .reverse()
+    .slice(-12)
+    .map((a) => ({
+      date: new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      score: a.probability,
+      domain: a.domain,
+    }));
 
   return (
     <div className="space-y-6">
@@ -43,7 +55,7 @@ export default async function DashboardHome() {
           { label: "Best score", value: bestAudit === null ? "—" : `${bestAudit}%`, icon: FileDown, href: "/dashboard/audit" },
           { label: "Articles written", value: jobs.length, icon: PenLine, href: "/dashboard/writer" },
         ].map((c) => (
-          <Link key={c.label} href={c.href} className="group rounded-lg border border-border bg-white p-5 transition-shadow hover:shadow-[0_2px_10px_rgba(27,38,32,0.07)]">
+          <Link key={c.label} href={c.href} className="group rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_10px_rgba(27,38,32,0.07)]">
             <div className="flex items-center justify-between">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-accent text-primary">
                 <c.icon className="h-4.5 w-4.5" />
@@ -56,9 +68,26 @@ export default async function DashboardHome() {
         ))}
       </div>
 
+      {/* Score history */}
+      <div className="rounded-lg border border-border bg-card p-5 dark:bg-card">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold text-foreground">Approval score history</h2>
+          <p className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
+            <span className="flex items-center gap-1.5"><span className="h-px w-4 border-t-2 border-dashed border-ok" aria-hidden="true" /> 70 = apply-ready</span>
+          </p>
+        </div>
+        {historyPoints.length >= 2 ? (
+          <ScoreHistoryChart points={historyPoints} />
+        ) : (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Run at least two audits to see your progress over time.
+          </p>
+        )}
+      </div>
+
       {/* Quick actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-border bg-white p-5">
+        <div className="rounded-lg border border-border bg-card p-5">
           <h2 className="font-bold text-foreground">Start something</h2>
           <div className="mt-3 space-y-2">
             {[
@@ -78,7 +107,7 @@ export default async function DashboardHome() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-white p-5">
+        <div className="rounded-lg border border-border bg-card p-5">
           <h2 className="font-bold text-foreground">Your referral link</h2>
           <p className="mt-1 text-sm text-muted-foreground">Earn 20% of every payment from people you refer.</p>
           <div className="mt-3 flex items-center gap-2">
@@ -99,14 +128,15 @@ export default async function DashboardHome() {
           <Link href="/dashboard/audit" className="text-sm font-semibold text-primary hover:underline">View all</Link>
         </div>
         {audits.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-border bg-secondary/40 p-8 text-center">
-            <p className="text-sm text-muted-foreground">No audits yet. Your first one takes about two minutes.</p>
-            <Button asChild className="mt-3 rounded-md font-semibold">
-              <Link href="/dashboard/audit">Run first audit</Link>
-            </Button>
-          </div>
+          <EmptyState
+            image="/illustrations/audit.png"
+            title="No audits yet"
+            body="Your first audit takes about two minutes and shows exactly what a reviewer would flag."
+            cta="Run first audit"
+            href="/dashboard/audit"
+          />
         ) : (
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
             <ul className="divide-y divide-border">
               {audits.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 p-4">

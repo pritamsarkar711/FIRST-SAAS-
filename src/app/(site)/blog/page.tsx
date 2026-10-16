@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { db } from "@/lib/db";
+import { LogoMark } from "@/components/logo";
 
 export const metadata = {
   title: "Blog",
@@ -31,13 +32,17 @@ export default async function BlogListPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {posts.map((p) => (
-            <Link key={p.id} href={`/blog/${p.slug}`} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-white transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
+            <Link key={p.id} href={`/blog/${p.slug}`} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
               {p.coverImage ? (
                 <div className="relative h-44 w-full border-b border-border">
                   <Image src={p.coverImage} alt={p.title} fill sizes="(max-width: 640px) 100vw, 400px" className="object-cover" />
                 </div>
               ) : (
-                <div className="relative h-44 w-full border-b border-border bg-accent" />
+                <div className="dotgrid relative flex h-44 w-full items-center justify-center border-b border-border bg-secondary/50">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-primary/10">
+                    <LogoMark className="h-7 w-7" />
+                  </span>
+                </div>
               )}
               <div className="flex flex-1 flex-col p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">

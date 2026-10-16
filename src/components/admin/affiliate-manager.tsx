@@ -65,19 +65,19 @@ export function AffiliateManager() {
 
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> {msg}</p>}
 
-      <div className="rounded-lg border border-border bg-white p-5">
+      <div className="rounded-lg border border-border bg-card p-5">
         <h2 className="flex items-center gap-2 font-bold text-foreground"><HandCoins className="h-4.5 w-4.5 text-primary" /> Commission rate</h2>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
             <input type="number" min={0} max={90} value={rate} onChange={(e) => setRate(Number(e.target.value))}
-              className="h-11 w-24 rounded-md border border-input bg-white px-3 text-[15px]" aria-label="Commission rate percent" />
+              className="h-11 w-24 rounded-md border border-input bg-card px-3 text-[15px]" aria-label="Commission rate percent" />
             <span className="font-bold text-foreground">%</span>
           </div>
           <Button onClick={saveRate} className="h-11 rounded-md px-5 font-semibold">Save rate</Button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-white p-5">
+      <div className="rounded-lg border border-border bg-card p-5">
         <h2 className="font-bold text-foreground">Withdrawal requests</h2>
         {withdrawals.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No requests yet.</p>
@@ -126,7 +126,7 @@ export function AffiliateManager() {
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-white p-5">
+      <div className="rounded-lg border border-border bg-card p-5">
         <h2 className="font-bold text-foreground">Recent commissions</h2>
         {earnings.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No commissions recorded yet.</p>

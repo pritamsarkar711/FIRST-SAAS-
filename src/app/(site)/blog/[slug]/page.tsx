@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
+import { LogoMark } from "@/components/logo";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,17 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <>
-      {post.coverImage ? (
-        <div className="relative h-64 w-full border-b border-border sm:h-80">
+      <div className={post.coverImage ? "relative h-64 w-full border-b border-border sm:h-80" : "border-b border-border bg-secondary/60"}>
+        {post.coverImage ? (
           <Image src={post.coverImage} alt={post.title} fill priority sizes="100vw" className="object-cover" />
-        </div>
-      ) : null}
+        ) : (
+          <div className="dotgrid flex h-40 items-center justify-center sm:h-48">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10">
+              <LogoMark className="h-9 w-9" />
+            </span>
+          </div>
+        )}
+      </div>
       <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
           <ArrowLeft className="h-3.5 w-3.5" /> All posts

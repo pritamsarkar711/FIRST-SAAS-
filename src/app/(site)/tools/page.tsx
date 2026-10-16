@@ -55,7 +55,7 @@ export default function ToolsPage() {
         {TOOLS.map((t, i) => (
           <div key={t.title} className={`grid items-center gap-8 lg:grid-cols-2 ${i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""}`}>
             <div className="overflow-hidden rounded-lg border border-border">
-              <Image src={t.img} alt={t.title} width={1344} height={768} className="h-auto w-full bg-white" />
+              <Image src={t.img} alt={t.title} width={1344} height={768} className="h-auto w-full bg-card" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">

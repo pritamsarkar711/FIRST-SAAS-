@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { MailCheck, Send, FolderCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/shared/empty-state";
 
 interface MessageRow {
   id: string;
@@ -68,14 +69,16 @@ export function MessagesManager() {
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><FolderCheck className="h-4 w-4" /> {msg}</p>}
 
       {messages.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-10 text-center">
-          <MailCheck className="mx-auto h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-2 text-sm text-muted-foreground">No messages yet. The contact form feeds this inbox.</p>
-        </div>
+        <EmptyState
+          image="/illustrations/support.png"
+          title="Inbox is empty"
+          body="Messages from the public contact form will appear here, grouped by reason."
+          size="sm"
+        />
       ) : (
         <div className="space-y-3">
           {messages.map((m) => (
-            <div key={m.id} className="rounded-lg border border-border bg-white p-5">
+            <div key={m.id} className="rounded-lg border border-border bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-bold text-foreground">{m.reason}</p>
@@ -97,7 +100,7 @@ export function MessagesManager() {
                 {openId === m.id ? (
                   <div className="w-full">
                     <textarea rows={4} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write your reply..."
-                      className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                      className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => void send(m.id)} disabled={busy === m.id || reply.trim().length < 2} className="rounded-md font-semibold">
                         <Send className="mr-1.5 h-3.5 w-3.5" /> Send reply

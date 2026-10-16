@@ -69,7 +69,7 @@ export function IndexerWorkspace({ costs, credits, initialKey }: { costs: { inde
 
   return (
     <div className="space-y-6">
-      <form onSubmit={submit} className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h1 className="text-lg font-bold text-foreground">Quick index via IndexNow</h1>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           Submit fresh posts straight to Bing, Yandex and Seznam. One-time setup: host a small key file at your domain root.
@@ -78,7 +78,7 @@ export function IndexerWorkspace({ costs, credits, initialKey }: { costs: { inde
         <div className="mt-5">
           <label htmlFor="i-domain" className="mb-1.5 block text-sm font-semibold text-foreground">Your domain</label>
           <input id="i-domain" type="text" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourblog.com"
-            className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </div>
 
         <div className="mt-4">
@@ -87,13 +87,13 @@ export function IndexerWorkspace({ costs, credits, initialKey }: { costs: { inde
           </label>
           <textarea id="i-urls" rows={5} value={urlsRaw} onChange={(e) => setUrlsRaw(e.target.value)}
             placeholder={"https://yourblog.com/new-post-1\nhttps://yourblog.com/new-post-2"}
-            className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </div>
 
         {key && (
           <div className="mt-4 rounded-md border border-border bg-secondary/60 p-4">
             <p className="flex items-center gap-2 text-sm font-bold text-foreground"><KeyRound className="h-4 w-4 text-primary" /> Your IndexNow key</p>
-            <code className="mt-2 block truncate rounded-sm border border-border bg-white px-3 py-2 text-sm">{key}</code>
+            <code className="mt-2 block truncate rounded-sm border border-border bg-card px-3 py-2 text-sm">{key}</code>
             <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
               Create a file named <span className="font-mono font-semibold">{key}.txt</span> containing this key, and upload it to the root of{" "}
               <span className="font-semibold">https://{domainClean || "yourblog.com"}/{key}.txt</span>. On WordPress use a file manager or the
@@ -130,7 +130,7 @@ export function IndexerWorkspace({ costs, credits, initialKey }: { costs: { inde
       {history.length > 0 && (
         <div>
           <h2 className="text-lg font-bold text-foreground">Submission history</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
             <ul className="divide-y divide-border">
               {history.map((h) => (
                 <li key={h.id} className="p-4">

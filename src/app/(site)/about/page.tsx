@@ -54,7 +54,7 @@ export default function AboutPage() {
             </Button>
           </div>
           <div className="overflow-hidden rounded-lg border border-border">
-            <Image src="/illustrations/support.png" alt="The AdAudit team supporting publishers" width={1024} height={1024} className="h-auto w-full bg-white" />
+            <Image src="/illustrations/support.png" alt="The AdAudit team supporting publishers" width={1024} height={1024} className="h-auto w-full bg-card" />
           </div>
         </div>
       </section>

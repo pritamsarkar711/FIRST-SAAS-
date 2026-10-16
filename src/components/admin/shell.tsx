@@ -9,6 +9,8 @@ import {
   MailCheck, Newspaper, Settings, Menu, X, LogOut,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { NotificationBell } from "@/components/shared/notification-bell";
+import { ThemeToggle } from "@/components/shared/theme";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -48,7 +50,7 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
 
   return (
     <div className="flex min-h-screen border-t-4 border-primary">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-white lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex">
         <div className="border-b border-border px-5 py-4">
           <Link href="/manage"><Logo name="AdAudit Manage" /></Link>
         </div>
@@ -65,7 +67,7 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <Logo name="AdAudit Manage" />
               <button onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary" aria-label="Close menu">
@@ -84,12 +86,16 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
       )}
 
       <div className="flex min-h-screen w-full flex-col lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
           <button onClick={() => setOpen(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary lg:hidden" aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
           <span className="hidden text-sm font-bold uppercase tracking-wide text-primary lg:block">Manage</span>
-          <span className="ml-auto text-sm font-semibold text-foreground">{adminName}</span>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
+            <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" />
+          </div>
+          <span className="ml-1 text-sm font-semibold text-foreground sm:ml-3">{adminName}</span>
           <button onClick={() => { signOut({ callbackUrl: "/manage/login" }); router.refresh(); }}
             className="ml-3 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-secondary lg:hidden">
             <LogOut className="h-3.5 w-3.5" />

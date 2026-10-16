@@ -6,6 +6,7 @@ import { Newspaper, Plus, Pencil, Trash2, CircleCheck, ImageUp } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { RichEditor } from "@/components/admin/rich-editor";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/shared/empty-state";
 
 interface PostRow { id: string; title: string; slug: string; status: string; views: number; publishedAt: string | null; createdAt: string }
 interface PostFull extends PostRow { excerpt: string | null; content: string; coverImage: string | null; metaTitle: string | null; metaDescription: string | null }
@@ -92,7 +93,7 @@ export function BlogManager() {
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> {msg}</p>}
 
       {form && (
-        <form onSubmit={save} className="rounded-lg border border-primary/40 bg-white p-5">
+        <form onSubmit={save} className="rounded-lg border border-primary/40 bg-card p-5">
           <h2 className="font-bold text-foreground">{form.id ? "Edit post" : "New post"}</h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
@@ -100,22 +101,22 @@ export function BlogManager() {
               <input required value={form.title} onChange={(e) => {
                 const t = e.target.value;
                 setForm({ ...form, title: t, slug: slugTouched.current ? form.slug : slugify(t) });
-              }} className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              }} className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Slug</label>
               <input required value={form.slug} onChange={(e) => { slugTouched.current = true; setForm({ ...form, slug: slugify(e.target.value) }); }}
-                className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div className="lg:col-span-2">
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Excerpt</label>
               <textarea rows={2} value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Cover image</label>
               <div className="flex items-center gap-2">
-                <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-input bg-white px-4 text-sm font-semibold text-foreground hover:bg-secondary">
+                <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-input bg-card px-4 text-sm font-semibold text-foreground hover:bg-secondary">
                   <ImageUp className="h-4 w-4" /> Upload
                   <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadCover(f); }} />
@@ -138,12 +139,12 @@ export function BlogManager() {
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Meta title (SEO)</label>
               <input value={form.metaTitle} maxLength={70} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })}
-                className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Meta description (SEO)</label>
               <input value={form.metaDescription} maxLength={160} onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
-                className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
           </div>
 
@@ -166,12 +167,15 @@ export function BlogManager() {
       )}
 
       {posts.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-10 text-center">
-          <Newspaper className="mx-auto h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-2 text-sm text-muted-foreground">No posts yet. Publish your first one.</p>
-        </div>
+        <EmptyState
+          image="/illustrations/writer.png"
+          title="No posts yet"
+          body="Publishing helpful guides grows organic traffic. Write your first post with the editor."
+          cta="Write the first post"
+          href="/manage/blog"
+        />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-white">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <ul className="divide-y divide-border">
             {posts.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 p-4">

@@ -73,7 +73,7 @@ export function PlansManager() {
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> {msg}</p>}
 
       {form && (
-        <form onSubmit={save} className="rounded-lg border border-primary/40 bg-white p-5">
+        <form onSubmit={save} className="rounded-lg border border-primary/40 bg-card p-5">
           <h2 className="font-bold text-foreground">{form.id ? "Edit plan" : "Create plan"}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -89,19 +89,19 @@ export function PlansManager() {
                 <input
                   type={type} step="0.01" placeholder={ph} value={String(form[key as keyof typeof form] ?? "")}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                  className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
             ))}
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Description</label>
               <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Features (one per line)</label>
               <textarea rows={4} value={form.featuresRaw} onChange={(e) => setForm({ ...form, featuresRaw: e.target.value })}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4 accent-[#0d6b4d]" />
@@ -117,7 +117,7 @@ export function PlansManager() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {plans.map((p) => (
-          <div key={p.id} className={cn("rounded-lg border bg-white p-5", p.active ? "border-border" : "border-dashed border-border opacity-70")}>
+          <div key={p.id} className={cn("rounded-lg border bg-card p-5", p.active ? "border-border" : "border-dashed border-border opacity-70")}>
             <div className="flex items-start justify-between">
               <Package className="h-5 w-5 text-primary" />
               <div className="flex gap-1">

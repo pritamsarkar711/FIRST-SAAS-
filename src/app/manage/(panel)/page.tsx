@@ -34,7 +34,7 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="group rounded-lg border border-border bg-white p-5 transition-shadow hover:shadow-[0_2px_10px_rgba(27,38,32,0.07)]">
+          <Link key={s.label} href={s.href} className="group rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_10px_rgba(27,38,32,0.07)]">
             <div className="flex items-center justify-between">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-accent text-primary"><s.icon className="h-4.5 w-4.5" /></span>
               <ArrowRight className="h-4 w-4 text-muted-foreground/0 transition-all group-hover:text-muted-foreground" />
@@ -46,7 +46,7 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-white p-5">
+        <div className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-bold text-foreground"><Clock className="h-4.5 w-4.5 text-primary" /> Payments awaiting review</h2>
             <Link href="/manage/payments" className="text-sm font-semibold text-primary hover:underline">All</Link>
@@ -68,7 +68,7 @@ export default async function AdminDashboard() {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-white p-5">
+        <div className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-foreground">Newest users</h2>
             <Link href="/manage/users" className="text-sm font-semibold text-primary hover:underline">All</Link>
@@ -87,7 +87,7 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-white p-5">
+      <div className="rounded-lg border border-border bg-card p-5">
         <h2 className="font-bold text-foreground">Latest audits</h2>
         <ul className="mt-3 divide-y divide-border">
           {recentAudits.length === 0 && <li className="py-3 text-sm text-muted-foreground">No audits yet.</li>}

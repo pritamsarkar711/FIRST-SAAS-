@@ -64,7 +64,7 @@ function RegisterForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-border bg-white p-6 sm:p-7">
+    <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 sm:p-7">
       <h1 className="text-xl font-bold text-foreground">Create your account</h1>
       {domain ? (
         <p className="mt-1.5 text-sm text-muted-foreground">
@@ -80,15 +80,15 @@ function RegisterForm() {
       <form onSubmit={submit} noValidate>
         <label htmlFor="r-name" className="mb-1.5 block text-sm font-semibold text-foreground">Full name</label>
         <input id="r-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Your name" />
         <label htmlFor="r-email" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Email</label>
         <input id="r-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="you@example.com" />
         <label htmlFor="r-pass" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Password</label>
         <input id="r-pass" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="8+ characters" />
         <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-muted-foreground">
           <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)}
@@ -150,7 +150,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-border bg-white p-6 sm:p-7">
+    <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 sm:p-7">
       <h1 className="text-xl font-bold text-foreground">Welcome back</h1>
       <p className="mt-1 text-sm text-muted-foreground">Sign in to run audits and manage your reports.</p>
       <div className="mt-5">
@@ -162,17 +162,17 @@ function LoginForm() {
       <form onSubmit={submit} noValidate>
         <label htmlFor="l-email" className="mb-1.5 block text-sm font-semibold text-foreground">Email</label>
         <input id="l-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="you@example.com" />
         <label htmlFor="l-pass" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Password</label>
         <input id="l-pass" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-          className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Your password" />
         {needs2fa && (
           <>
             <label htmlFor="l-code" className="mb-1.5 mt-4 block text-sm font-semibold text-foreground">Two factor code</label>
             <input id="l-code" type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="000000" maxLength={6} />
           </>
         )}
@@ -198,7 +198,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <div className="hidden justify-center lg:flex">
           <div className="w-full max-w-sm">
             <div className="overflow-hidden rounded-lg border border-border">
-              <Image src="/illustrations/auth.png" alt="Sign in to AdAudit" width={864} height={1152} className="h-auto w-full bg-white" />
+              <Image src="/illustrations/auth.png" alt="Sign in to AdAudit" width={864} height={1152} className="h-auto w-full bg-card" />
             </div>
             <ul className="mt-5 space-y-2.5">
               {["Free credits the moment you sign up", "Reports saved as clean PDFs", "Cancel-free, one-time plans"].map((t) => (

@@ -34,7 +34,7 @@ export default async function BillingPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Billing and plans</h1>
           <p className="mt-1 text-sm text-muted-foreground">One-time credit packs. Credits never expire.</p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5">
           <Coins className="h-5 w-5 text-primary" />
           <span className="text-xl font-bold text-foreground">{user!.credits.toLocaleString()}</span>
           <span className="text-sm text-muted-foreground">credits</span>
@@ -49,7 +49,7 @@ export default async function BillingPage() {
             { t: "Article", rows: [["Standard", costs.writer.standard], ["Premium", costs.writer.premium], ["Images", "included"]] },
             { t: "Indexing", rows: [["IndexNow batch (20 URLs)", costs.index], ["Re-submission", costs.index], ["History", "included"]] },
           ].map((c) => (
-            <div key={c.t} className="rounded-lg border border-border bg-white p-4">
+            <div key={c.t} className="rounded-lg border border-border bg-card p-4">
               <p className="font-bold text-foreground">{c.t}</p>
               <ul className="mt-2 space-y-1.5">
                 {c.rows.map(([label, v]) => (
@@ -77,7 +77,7 @@ export default async function BillingPage() {
             <p className="mt-2 text-sm text-muted-foreground">No payments yet. Pick a plan above when you need more credits.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border bg-white">
+          <div className="overflow-x-auto rounded-lg border border-border bg-card">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/60 text-left">

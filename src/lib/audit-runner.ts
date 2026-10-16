@@ -106,11 +106,28 @@ Produce the JSON verdict for ${networkName(audit.target)} approval readiness of 
       where: { id: auditId },
       data: { status: "DONE", report: JSON.stringify(report), probability: report.probability, verdict: report.verdict },
     });
+
+    const { notify } = await import("@/lib/notify");
+    await notify(
+      audit.userId,
+      "AUDIT",
+      `Audit ready: ${audit.domain}`,
+      `${networkName(audit.target)} verdict: ${report.verdict === "APPLY_NOW" ? "Apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "Wait and improve" : "High risk of rejection"} — ${report.probability}% approval probability.`,
+      `/dashboard/audit/${auditId}`
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : "The audit engine hit an unexpected error. Credits were refunded.";
     // refund credits on failure
     const { addCredits } = await import("@/lib/credits");
     await addCredits(audit.userId, audit.creditsUsed).catch(() => {});
+    const { notify } = await import("@/lib/notify");
+    await notify(
+      audit.userId,
+      "AUDIT",
+      `Audit failed: ${audit.domain}`,
+      `${message.slice(0, 200)} Credits were refunded to your balance.`,
+      "/dashboard/audit"
+    ).catch(() => {});
     await db.audit.update({ where: { id: auditId }, data: { status: "FAILED", error: message.slice(0, 500) } }).catch(() => {});
   }
 }

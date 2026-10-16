@@ -8,6 +8,8 @@ import {
   LayoutDashboard, SearchCheck, PenLine, Link2, Users, Wallet, Settings, Menu, X, LogOut, Coins, ExternalLink,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { NotificationBell } from "@/components/shared/notification-bell";
+import { ThemeToggle } from "@/components/shared/theme";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -54,7 +56,7 @@ export function DashboardShell({ children, credits, userName, isAdmin }: { child
 
   return (
     <div className="flex min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-white lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex">
         <div className="border-b border-border px-5 py-4">
           <Link href="/"><Logo /></Link>
         </div>
@@ -70,7 +72,7 @@ export function DashboardShell({ children, credits, userName, isAdmin }: { child
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <Logo />
               <button onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary" aria-label="Close menu">
@@ -93,14 +95,16 @@ export function DashboardShell({ children, credits, userName, isAdmin }: { child
       )}
 
       <div className="flex min-h-screen w-full flex-col lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
           <button onClick={() => setOpen(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary lg:hidden" aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
           <div className="hidden text-sm font-semibold text-muted-foreground lg:block">
             {NAV.find((n) => (n.href === "/dashboard" ? pathname === n.href : pathname.startsWith(n.href)))?.label || "Dashboard"}
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
+            <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" />
             <Link href="/dashboard/billing" className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-bold text-primary" aria-label="Credit balance">
               <Coins className="h-4 w-4" /> {credits.toLocaleString()}
             </Link>

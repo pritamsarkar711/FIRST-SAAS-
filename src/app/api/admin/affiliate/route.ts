@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { notify } from "@/lib/notify";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -43,16 +44,20 @@ export async function POST(req: NextRequest) {
   if (parsed.data.action === "withdrawal" && parsed.data.id && parsed.data.decision) {
     const w = await db.withdrawal.findUnique({ where: { id: parsed.data.id } });
     if (!w) return NextResponse.json({ error: "Withdrawal not found." }, { status: 404 });
-    if (parsed.data.decision === "reject") {
+    const decision = parsed.data.decision;
+    if (decision === "reject") {
       // Return the money to cleared balance
       await db.affiliateEarning.create({
         data: { userId: w.userId, fromUserId: w.userId, amount: w.amount, status: "CLEARED" },
       });
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "REJECTED", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal rejected", `Your $${w.amount.toFixed(2)} withdrawal was rejected and the amount was returned to your cleared balance.`, "/dashboard/affiliate");
     } else if (parsed.data.decision === "approve") {
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "PROCESSING", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal processing", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} is being processed. Payouts arrive within 3 business days.`, "/dashboard/affiliate");
     } else {
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "COMPLETED", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal paid", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} has been sent to ${w.account}.`, "/dashboard/affiliate");
     }
     return NextResponse.json({ ok: true });
   }

@@ -236,6 +236,28 @@
 }
 .ck.ck-toolbar { border-radius: 6px 6px 0 0 !important; }
 
+/* Print: report pages come out as a clean standalone document */
+@media print {
+  header, footer, aside, nav {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  main > div {
+    max-width: 100% !important;
+  }
+  .print\:hidden, button {
+    display: none !important;
+  }
+  * {
+    box-shadow: none !important;
+  }
+}
+
 /* Keyframes kept subtle; no flashy AI-style motion */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }

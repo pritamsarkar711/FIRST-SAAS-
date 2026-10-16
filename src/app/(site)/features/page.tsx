@@ -67,7 +67,7 @@ export default function FeaturesPage() {
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div className="grid gap-8 lg:grid-cols-2">
           {LAYERS.map((l) => (
-            <div key={l.title} className="flex gap-4 rounded-lg border border-border bg-white p-6">
+            <div key={l.title} className="flex gap-4 rounded-lg border border-border bg-card p-6">
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-accent text-primary">
                 <l.icon className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -91,7 +91,7 @@ export default function FeaturesPage() {
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div className="overflow-hidden rounded-lg border border-border">
-              <Image src="/illustrations/audit.png" alt="Audit engine examining a website page" width={1344} height={768} className="h-auto w-full bg-white" />
+              <Image src="/illustrations/audit.png" alt="Audit engine examining a website page" width={1344} height={768} className="h-auto w-full bg-card" />
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Three modes, one engine</h2>
@@ -101,7 +101,7 @@ export default function FeaturesPage() {
                   { t: "Standard", d: "Our recommendation. A stronger model, deeper content analysis and the best balance of cost and depth." },
                   { t: "Premium", d: "The most thorough pass with a top-tier frontier model. Maximum findings, maximum accuracy, most credits." },
                 ].map((m) => (
-                  <div key={m.t} className="rounded-md border border-border bg-white p-4">
+                  <div key={m.t} className="rounded-md border border-border bg-card p-4">
                     <p className="font-bold text-foreground">{m.t}</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{m.d}</p>
                   </div>

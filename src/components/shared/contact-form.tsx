@@ -47,7 +47,7 @@ export function ContactForm() {
 
   if (done) {
     return (
-      <div className="rounded-lg border border-border bg-white p-8 text-center">
+      <div className="rounded-lg border border-border bg-card p-8 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-ok" />
         <h2 className="mt-3 text-lg font-bold text-foreground">Message received</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
@@ -58,13 +58,13 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-border bg-white p-5 sm:p-6" noValidate>
+    <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 sm:p-6" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="c-name" className="mb-1.5 block text-sm font-semibold text-foreground">Your name</label>
           <input
             id="c-name" type="text" required value={name} onChange={(e) => setName(e.target.value)}
-            className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Full name" maxLength={80}
           />
         </div>
@@ -72,7 +72,7 @@ export function ContactForm() {
           <label htmlFor="c-email" className="mb-1.5 block text-sm font-semibold text-foreground">Email</label>
           <input
             id="c-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-            className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="you@example.com" maxLength={120}
           />
         </div>
@@ -93,7 +93,7 @@ export function ContactForm() {
         <textarea
           id="c-msg" required value={message} onChange={(e) => setMessage(e.target.value)}
           rows={5} maxLength={2000}
-          className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="How can we help?"
         />
       </div>

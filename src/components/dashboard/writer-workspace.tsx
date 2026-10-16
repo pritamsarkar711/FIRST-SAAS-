@@ -121,7 +121,7 @@ export function WriterWorkspace({
       </div>
 
       {/* Form */}
-      <form onSubmit={(e) => { e.preventDefault(); void start(); }} className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <form onSubmit={(e) => { e.preventDefault(); void start(); }} className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h1 className="text-lg font-bold text-foreground">{tab === "ADSENSE" ? "Write an AdSense ready article" : "Write an affiliate article"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {tab === "ADSENSE"
@@ -134,7 +134,7 @@ export function WriterWorkspace({
             <label htmlFor="w-keyword" className="mb-1.5 block text-sm font-semibold text-foreground">Main keyword</label>
             <input id="w-keyword" type="text" value={keyword} onChange={(e) => setKeyword(e.target.value)}
               placeholder={tab === "ADSENSE" ? "e.g. peace lily drooping but soil is wet" : "e.g. best budget mechanical keyboards"}
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-foreground">Mode</label>
@@ -167,7 +167,7 @@ export function WriterWorkspace({
           <div>
             <label htmlFor="w-site" className="mb-1.5 block text-sm font-semibold text-foreground">Publishing site (optional)</label>
             <input id="w-site" type="text" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="myblog.com"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <div className="md:col-span-2">
             <label htmlFor="w-internal" className="mb-1.5 block text-sm font-semibold text-foreground">
@@ -175,7 +175,7 @@ export function WriterWorkspace({
             </label>
             <textarea id="w-internal" rows={2} value={internalLinksRaw} onChange={(e) => setInternalLinksRaw(e.target.value)}
               placeholder={"https://myblog.com/watering-guide | how to water peace lilies"}
-              className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           {tab === "AFFILIATE" && (
             <div className="md:col-span-2">
@@ -184,18 +184,18 @@ export function WriterWorkspace({
               </label>
               <textarea id="w-aff" rows={3} value={affiliateLinksRaw} onChange={(e) => setAffiliateLinksRaw(e.target.value)}
                 placeholder={"Keychron K2 | https://www.amazon.com/dp/B07XXXX"}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
           )}
           <div>
             <label htmlFor="w-aud" className="mb-1.5 block text-sm font-semibold text-foreground">Target reader (optional)</label>
             <input id="w-aud" type="text" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Beginner plant owners"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <div>
             <label htmlFor="w-notes" className="mb-1.5 block text-sm font-semibold text-foreground">Extra instructions (optional)</label>
             <input id="w-notes" type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Focus on indoor varieties"
-              className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
         </div>
 
@@ -214,7 +214,7 @@ export function WriterWorkspace({
 
       {/* Active job / result */}
       {active && (
-        <div className="fade-up rounded-lg border border-border bg-white">
+        <div className="fade-up rounded-lg border border-border bg-card">
           {active.status === "FAILED" ? (
             <div className="p-6">
               <div className="flex items-center gap-2.5"><CircleX className="h-6 w-6 text-risk" /><p className="font-bold text-foreground">Generation failed</p></div>
@@ -246,7 +246,7 @@ export function WriterWorkspace({
       {history.length > 0 && (
         <div>
           <h2 className="text-lg font-bold text-foreground">Recent articles</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
             <ul className="divide-y divide-border">
               {history.slice(0, 10).map((j) => (
                 <li key={j.id} className="flex items-center justify-between gap-3 p-4">
@@ -356,11 +356,11 @@ function ArticleResult({ job }: { job: Job }) {
             </p>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
               <input required type="url" value={wpUrl} onChange={(e) => setWpUrl(e.target.value)} placeholder="https://yourblog.com"
-                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <input required type="text" value={wpUser} onChange={(e) => setWpUser(e.target.value)} placeholder="Username"
-                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <input required type="password" value={wpPass} onChange={(e) => setWpPass(e.target.value)} placeholder="Application password"
-                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             {wpStatus && <p className="mt-2 text-sm font-medium text-risk">{wpStatus}</p>}
             {wpLink && <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> Draft created: <a href={wpLink} target="_blank" rel="noreferrer" className="underline">{wpLink}</a></p>}
@@ -375,7 +375,7 @@ function ArticleResult({ job }: { job: Job }) {
       <div className="flex gap-1 border-b border-border px-5 pt-3" role="tablist" aria-label="Result view">
         {(["preview", "html"] as const).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
-            className={cn("rounded-t-md px-4 py-2 text-sm font-bold", tab === t ? "border-x border-t border-border bg-white text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            className={cn("rounded-t-md px-4 py-2 text-sm font-bold", tab === t ? "border-x border-t border-border bg-card text-foreground" : "text-muted-foreground hover:text-foreground")}>
             {t === "preview" ? "Preview" : "SEO and meta"}
           </button>
         ))}

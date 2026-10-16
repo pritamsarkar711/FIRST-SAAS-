@@ -55,7 +55,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
 
   if (done) {
     return (
-      <div className="rounded-lg border border-border bg-white p-8 text-center">
+      <div className="rounded-lg border border-border bg-card p-8 text-center">
         <CircleCheck className="mx-auto h-11 w-11 text-ok" />
         <h1 className="mt-3 text-xl font-bold text-foreground">Order placed</h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{done}</p>
@@ -69,7 +69,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-      <div className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
         <h1 className="text-lg font-bold text-foreground">Choose payment method</h1>
         {gateways.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Loading available methods...</p>
@@ -78,7 +78,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
             {gateways.map((g) => (
               <button key={g.code} type="button" onClick={() => setSelected(g.code)}
                 className={cn("flex items-center gap-3 rounded-md border p-3.5 text-left transition-colors",
-                  selected === g.code ? "border-primary bg-accent" : "border-border bg-white hover:border-input")}
+                  selected === g.code ? "border-primary bg-accent" : "border-border bg-card hover:border-input")}
                 aria-pressed={selected === g.code}>
                 <BrandLogo name={g.name} src={g.logo} size={24} />
                 <span className="min-w-0 flex-1">
@@ -108,12 +108,12 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
               <div>
                 <label htmlFor="p-sender" className="mb-1.5 block text-sm font-semibold text-foreground">Sender number / name</label>
                 <input id="p-sender" type="text" value={sender} onChange={(e) => setSender(e.target.value)} maxLength={80}
-                  placeholder="01XXXXXXXXX" className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  placeholder="01XXXXXXXXX" className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
               <div>
                 <label htmlFor="p-txid" className="mb-1.5 block text-sm font-semibold text-foreground">Transaction ID (TrxID)</label>
                 <input id="p-txid" type="text" value={txId} onChange={(e) => setTxId(e.target.value)} maxLength={80}
-                  placeholder="From your payment receipt" className="h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  placeholder="From your payment receipt" className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
             </div>
           )}
@@ -133,7 +133,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
       </div>
 
       {/* Summary */}
-      <div className="h-fit rounded-lg border border-border bg-white p-5 sm:p-6">
+      <div className="h-fit rounded-lg border border-border bg-card p-5 sm:p-6">
         <h2 className="font-bold text-foreground">Order summary</h2>
         <div className="mt-4 rounded-md border border-border bg-secondary/50 p-4">
           <p className="text-lg font-bold text-foreground">{plan.name} plan</p>

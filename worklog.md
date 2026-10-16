@@ -62,3 +62,43 @@ Verified end-to-end (curl + browser):
 
 Stage Summary:
 - Full platform operational in sandbox. Dev server on :3000. Next agent should: add premium API gateway implementations (Stripe/SSLCommerz checkout sessions) when admin keys exist, moderation niceties, and further UI polish.
+
+---
+Task ID: 3 (cron round 1)
+Agent: Z.ai cron review
+Task: QA assessment + new features (dark mode, notifications, share links, comparison, chart) + styling details
+
+Work Log (current project status assessment first):
+- QA: lint clean, zero runtime errors in dev.log, all 15+ routes 200. Platform stable -> proceeded to feature work per mandate.
+
+Features added:
+- Dark mode: ThemeProvider (next-themes, class strategy) in root layout; ThemeToggle in site header (desktop + mobile menu), dashboard topbar and admin topbar. Full dark token set already existed in globals.css.
+- Notification system: Notification model + lib/notify.ts; real-event hooks wired into audit DONE/FAILED, payment approve/reject, withdrawal approve/reject/complete, support reply. API /api/notifications (GET list+unread, POST mark read one/all). Bell with unread badge + dropdown (polls 30s) in dashboard + admin shells.
+- Shareable reports: Audit.shareToken; POST/DELETE /api/audit/[id]/share; public read-only page /share/[token] with branded header, CTA, noindex metadata. Share chip + copy + revoke UI on the report page.
+- Audit comparison: report page auto-fetches previous DONE audit of same domain+network and renders "Progress since last check" panel: probability delta, verdict change row, per-section score deltas with trend arrows.
+- Score history chart: recharts LineChart of last 12 audit scores on dashboard overview with 70-line "apply-ready" reference; theme-aware colors.
+- Report view extracted to shared component (components/shared/report-view.tsx) used by dashboard + public share page; print button + print stylesheet (nav/header/buttons hidden, white doc).
+
+Styling details:
+- 39 files: hardcoded bg-white surfaces -> theme-aware bg-card; headers -> bg-background/95 so dark mode is consistent.
+- Illustrated empty states (EmptyState component) applied to audit history, dashboard recent audits, admin blog, admin messages, admin payments.
+- Blog covers: branded dotgrid + logo-mark pattern when a post has no cover image (list + detail).
+- BrandLogo: white padded chip so favicon-style logos read well in dark mode.
+
+Bugs found and fixed this round:
+- /dashboard/audit/[id] redirected to login: rewritten page had reintroduced bare getServerSession() -> switched to auth() helper.
+- Notification model 500: prisma client not regenerated after db:push in the running server -> bunx prisma generate + server restart.
+- Network/gateway logos rendered as broken images: PNG bytes served with image/svg+xml content type -> renamed 11 files to .png, updated GatewayConfig.logo rows and hardcoded refs. Verified: ezoic/mediavine/raptive marks now render.
+- setMounted-in-effect lint errors (2): replaced with useSyncExternalStore-based useHasMounted hook.
+- Comparison copy: neutral-delta message corrected.
+
+Verified in browser (dark + light):
+- Dashboard: bell with unread badge + dropdown notification, score chart rendering, dark surfaces consistent.
+- Report: share chip + copy + revoke, comparison panel with per-section deltas (Content -20, Traffic -10 etc.), verdict change row, dark mode.
+- Public /share/<token>: read-only branded report, real crawl evidence, CTA header.
+- Trust bar: all four network logos render as real marks.
+- Final: lint clean, 0 runtime errors, all routes 200, both themes verified on home/dashboard/report.
+
+Stage Summary:
+- Platform now has dark mode, notifications, public share links, audit progress comparison, score history chart, print support, and polished empty states.
+- Next priorities: API gateway checkout implementations (Stripe/SSLCommerz sessions) when admin keys are configured; email digests; admin activity log; bulk audit input; sitemap-level content scanning depth.

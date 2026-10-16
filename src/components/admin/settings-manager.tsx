@@ -83,7 +83,7 @@ export function SettingsManager() {
 
       {msg && <p className="flex items-center gap-1.5 rounded-md bg-ok-soft px-3 py-2 text-sm font-semibold text-ok"><CircleCheck className="h-4 w-4" /> {msg}</p>}
 
-      <div className="rounded-lg border border-border bg-white p-5 sm:p-6">
+      <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
         {tab === "site" && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Site name" value={data.site.name} onChange={(v) => upd("site", { name: v })} />
@@ -102,7 +102,7 @@ export function SettingsManager() {
               <label className="mb-1.5 block text-sm font-semibold text-foreground">OpenRouter API key</label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input type="password" value={data.ai.openrouterKey} onChange={(e) => upd("ai", { openrouterKey: e.target.value })}
-                  placeholder="sk-or-v1-..." className="h-11 flex-1 rounded-md border border-input bg-white px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  placeholder="sk-or-v1-..." className="h-11 flex-1 rounded-md border border-input bg-card px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                 <Button type="button" variant="outline" onClick={testKey} className="h-11 rounded-md font-semibold">Test key</Button>
               </div>
               {testResult && <p className={cn("mt-2 text-sm font-semibold", testResult === "Key works." ? "text-ok" : "text-risk")}>{testResult}</p>}
@@ -131,17 +131,17 @@ export function SettingsManager() {
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Audit master prompt</label>
               <textarea rows={10} value={data.prompts.audit} onChange={(e) => upd("prompts", { audit: e.target.value })}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Content writer prompt</label>
               <textarea rows={10} value={data.prompts.writer} onChange={(e) => upd("prompts", { writer: e.target.value })}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-foreground">Affiliate writer prompt</label>
               <textarea rows={10} value={data.prompts.affiliate} onChange={(e) => upd("prompts", { affiliate: e.target.value })}
-                className="w-full rounded-md border border-input bg-white px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                className="w-full rounded-md border border-input bg-card px-3 py-2.5 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
           </div>
         )}
@@ -196,7 +196,7 @@ function Field({ label, value, onChange, type = "text", wide, mono }: { label: s
     <div className={wide ? "sm:col-span-2" : ""}>
       <label className="mb-1.5 block text-sm font-semibold text-foreground">{label}</label>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
-        className={cn("h-11 w-full rounded-md border border-input bg-white px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", mono && "font-mono text-sm")} />
+        className={cn("h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", mono && "font-mono text-sm")} />
     </div>
   );
 }
