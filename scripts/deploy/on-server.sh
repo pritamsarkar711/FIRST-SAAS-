@@ -20,15 +20,22 @@ LOG="$HOME/auditform/app.log"
 SUP="$HOME/auditform/run-app.sh"
 SOCK="$HOME/auditform/app.sock"
 
-# Locate a runtime: prefer node (stricter module semantics), fall back to bun
+# Locate a runtime: prefer real node (fast boot, stable unix sockets, no JSC
+# aborts). CloudLinux ships node for hPanel Node apps at /opt/alt/alt-nodejsXX
+# (confirmed by survey v6); bun (/usr/bin/bun) is the last-resort fallback.
 RUNTIME=""
-for c in node /usr/local/bin/node /usr/bin/node "$HOME/bin/node" bun; do
-  if command -v "$c" >/dev/null 2>&1; then RUNTIME="$(command -v "$c")"; break; fi
+for c in node /usr/local/bin/node /usr/bin/node "$HOME/bin/node" \
+         /opt/alt/alt-nodejs22/root/usr/bin/node \
+         /opt/alt/alt-nodejs24/root/usr/bin/node \
+         /opt/alt/alt-nodejs20/root/usr/bin/node \
+         /opt/alt/alt-nodejs18/root/usr/bin/node \
+         bun; do
+  if [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; then RUNTIME="$(command -v "$c" 2>/dev/null || echo "$c")"; break; fi
 done
 [ -n "$RUNTIME" ] || { echo "FATAL: no bun or node runtime found on server"; exit 1; }
 case "$RUNTIME" in
   *bun) NODE_FLAGS="" ;;
-  *)    NODE_FLAGS="--unhandled-rejections=warn" ;;
+  *)    NODE_FLAGS="--unhandled-rejections=warn --max-old-space-size=384" ;;
 esac
 echo "-- runtime: $RUNTIME ($("$RUNTIME" --version 2>&1 | head -1)) flags:[$NODE_FLAGS]"
 
