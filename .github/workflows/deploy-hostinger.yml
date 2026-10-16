@@ -64,6 +64,7 @@ jobs:
         if: steps.pre.outputs.status == 'ready' && github.event_name == 'workflow_dispatch' && inputs.mode == 'survey'
         env:
           PUBLIC_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PUBLIC_IP: ${{ secrets.SSH_HOST }}
         run: |
           sudo apt-get update -qq >/dev/null 2>&1
           sudo apt-get install -y -qq sshpass >/dev/null 2>&1

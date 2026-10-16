@@ -74,6 +74,14 @@ if [ -d "$HOME/auditform/app" ]; then
   echo "  trivial bun TCP bind test (port 3999):"
   (cd "$HOME/auditform/app" && timeout 8 bun -e "Bun.serve({hostname:'127.0.0.1',port:3999,fetch:()=>new Response('bind-ok')}); setTimeout(()=>process.exit(0),3000);" >/tmp/bindtest.log 2>&1 & sleep 2; BT=$(curl -s --max-time 4 http://127.0.0.1:3999/ 2>/dev/null || echo FAIL); echo "    bind test result: $BT"; wait 2>/dev/null) | head -3
   cat /tmp/bindtest.log 2>/dev/null | head -3 | sed 's/^/    /'
+  echo "  bind 0.0.0.0:3999 + curl via PUBLIC IP (escape hatch test):"
+  (cd "$HOME/auditform/app" && timeout 9 bun -e "Bun.serve({hostname:'0.0.0.0',port:3999,fetch:()=>new Response('bind-public-ok')}); setTimeout(()=>process.exit(0),4000);" >/tmp/bindpub.log 2>&1 & sleep 2; BP=$(curl -s --max-time 5 "http://${PUBLIC_IP:-127.0.0.1}:3999/" 2>/dev/null || echo FAIL); echo "    public-IP bind result: $BP"; wait 2>/dev/null) | head -3
+  cat /tmp/bindpub.log 2>/dev/null | head -3 | sed 's/^/    /'
+  echo "  bind 0.0.0.0:3999 + curl via 127.0.0.1:"
+  (cd "$HOME/auditform/app" && timeout 9 bun -e "Bun.serve({hostname:'0.0.0.0',port:3999,fetch:()=>new Response('bind-any-loop-ok')}); setTimeout(()=>process.exit(0),4000);" >/tmp/bindany.log 2>&1 & sleep 2; BA=$(curl -s --max-time 4 http://127.0.0.1:3999/ 2>/dev/null || echo FAIL); echo "    any-bind loopback result: $BA"; wait 2>/dev/null) | head -3
+  echo "  managed node binaries (hPanel Node app runtime):"
+  find /opt/alt /usr/local /opt/cpanel 2>/dev/null -maxdepth 4 -name "node" -type f 2>/dev/null | head -5 | sed 's/^/    /'
+  ls -d "$HOME"/nodevenv* 2>/dev/null | head -3 | sed 's/^/    /'
 else
   echo "  (no ~/auditform/app yet)"
 fi
