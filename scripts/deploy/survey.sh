@@ -63,6 +63,16 @@ if [ -d "$HOME/auditform/app" ]; then
   done
   echo "  supervisor process:"; pgrep -af "auditform/run-app.sh" | head -2 || echo "    (not running)"
   echo "  supervisor restart markers in log: $(grep -c '\[supervisor\]' "$HOME/auditform/app.log" 2>/dev/null || echo 0)"
+  echo "  all supervisor lines (exit codes!):"
+  grep "\[supervisor\]" "$HOME/auditform/app.log" 2>/dev/null | tail -6 | sed 's/^/    /'
+  echo "  last 30 app log lines:"
+  tail -n 30 "$HOME/auditform/app.log" 2>/dev/null | sed 's/^/    /'
+  echo "  LIVE unix-socket probe:"
+  if [ -S "$HOME/auditform/app.sock" ]; then
+    echo "    socket exists: $(curl -s --unix-socket "$HOME/auditform/app.sock" --max-time 20 -o /dev/null -w '%{http_code}' http://localhost/ 2>/dev/null || echo 000)"
+  else
+    echo "    socket file MISSING"
+  fi
   APP_PID=$(pgrep -f "auditform/app/server.js" | head -1)
   echo "  app process state (pid=$APP_PID):"
   [ -n "$APP_PID" ] && ps -o pid,stat,rss,vsz,nlwp,etime -p "$APP_PID" 2>/dev/null | sed 's/^/    /'
