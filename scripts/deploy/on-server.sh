@@ -12,9 +12,10 @@ LOG="$HOME/auditform/app.log"
 SUP="$HOME/auditform/run-app.sh"
 PORT=3000
 
-# Locate a runtime: prefer bun, fall back to node in common locations
+# Locate a runtime: prefer node (faster boot, stricter module semantics),
+# fall back to bun which Hostinger shared servers ship at /usr/bin/bun
 RUNTIME=""
-for c in bun node "$HOME/bin/node" /usr/local/bin/node /usr/bin/node; do
+for c in node /usr/local/bin/node /usr/bin/node "$HOME/bin/node" bun; do
   if command -v "$c" >/dev/null 2>&1; then RUNTIME="$(command -v "$c")"; break; fi
 done
 [ -n "$RUNTIME" ] || { echo "FATAL: no bun or node runtime found on server"; exit 1; }
@@ -64,6 +65,26 @@ else
   echo "DB INIT: SKIPPED (mysql client, db-init.sql or DB creds missing)"
 fi
 
+# 2.5) Make pdfkit standard-font resolution ABSOLUTE on the server.
+#      Bun cannot resolve bare (or relative) specifiers when the calling module
+#      has no real filename (parent ''), which produced:
+#      "Cannot find module 'pdfkit/js/standard-fonts/Helvetica.mjs' from ''".
+#      Absolute paths resolve from EVERY context. The runner already patched
+#      '#standard-fonts/X' to the bare form; here we go all the way.
+PDFKIT_JS="$APP/node_modules/pdfkit/js"
+if [ -d "$PDFKIT_JS/standard-fonts" ]; then
+  for f in "$PDFKIT_JS/pdfkit.js" "$PDFKIT_JS/pdfkit.node.mjs" "$PDFKIT_JS/pdfkit.browser.mjs"; do
+    [ -f "$f" ] && sed -i "s|'pdfkit/js/standard-fonts/|'$PDFKIT_JS/standard-fonts/|g; s|\"pdfkit/js/standard-fonts/|\"$PDFKIT_JS/standard-fonts/|g" "$f"
+  done
+  # In case a bundler inlined copies of these requires into server chunks:
+  grep -rl "pdfkit/js/standard-fonts/" "$APP/.next/server" 2>/dev/null | while read -r f; do
+    sed -i "s|'pdfkit/js/standard-fonts/|'$PDFKIT_JS/standard-fonts/|g" "$f"
+  done
+  echo "-- pdfkit fonts: absolute-path resolution installed ($PDFKIT_JS)"
+else
+  echo "-- pdfkit fonts: standard-fonts dir missing in standalone (unexpected)"
+fi
+
 # 3) Install the crash-restarting supervisor, then (re)start the app under it
 echo "-- installing supervisor: $SUP --"
 cat > "$SUP" <<'SUPERVISOR_EOF'
@@ -93,10 +114,10 @@ set -a; . ./.env; set +a
 export PORT NODE_ENV=production HOSTNAME=127.0.0.1
 setsid nohup bash "$SUP" "$RUNTIME" "$NODE_FLAGS" > /dev/null 2>&1 < /dev/null &
 
-# 4) Health check - first boot on shared CPU can take a while; wait up to ~90s
+# 4) Health check - first boot on shared CPU can take ~100s under bun; wait up to ~140s
 echo "-- local health check:"
 OK=000
-for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+for i in $(seq 1 20); do
   OK=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "http://127.0.0.1:$PORT/" 2>/dev/null) || OK=000
   echo "  try $i: http://127.0.0.1:$PORT/ -> $OK"
   [ "$OK" != "000" ] && [ "$OK" != "502" ] && break
