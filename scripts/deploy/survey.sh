@@ -89,10 +89,8 @@ if [ -d "$HOME/auditform/app" ]; then
   cat /tmp/bindpub.log 2>/dev/null | head -3 | sed 's/^/    /'
   echo "  bind 0.0.0.0:3999 + curl via 127.0.0.1:"
   (cd "$HOME/auditform/app" && timeout 9 bun -e "Bun.serve({hostname:'0.0.0.0',port:3999,fetch:()=>new Response('bind-any-loop-ok')}); setTimeout(()=>process.exit(0),4000);" >/tmp/bindany.log 2>&1 & sleep 2; BA=$(curl -s --max-time 4 http://127.0.0.1:3999/ 2>/dev/null || echo FAIL); echo "    any-bind loopback result: $BA"; wait 2>/dev/null) | head -3
-  echo "  managed node binaries (hPanel Node app runtime) - DEEP search:"
-  find /opt/alt /opt/plesk /usr/local /opt -maxdepth 7 -name "node" -type f 2>/dev/null | grep -vE "modules|\.cache" | head -8 | sed 's/^/    /'
-  ls -d /opt/alt/* 2>/dev/null | head -10 | sed 's/^/    /'
-  ls -d "$HOME"/nodevenv* 2>/dev/null | head -3 | sed 's/^/    /'
+  echo "  managed node binaries:"
+  ls /opt/alt/alt-nodejs22/root/usr/bin/node /opt/alt/alt-nodejs24/root/usr/bin/node /opt/alt/alt-nodejs20/root/usr/bin/node 2>/dev/null | sed 's/^/    /'
   echo "  bun memory + repeated-request abort test (unix socket, 2 requests 6s apart):"
   T=$(mktemp -d)
   (cd "$HOME/auditform/app" && timeout 20 bun -e "
