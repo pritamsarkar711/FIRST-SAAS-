@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
       // The PDF stack is externalized (see serverExternalPackages) and loads
       // from node_modules at runtime - ship every package it can require.
       "./node_modules/pdfkit/**",
+      "./node_modules/@noble/ciphers/**",
+      "./node_modules/@noble/hashes/**",
+      "./node_modules/fflate/**",
+      "./node_modules/linebreak/**",
       "./node_modules/@react-pdf/**",
       "./node_modules/fontkit/**",
       "./node_modules/@babel/runtime/**",
@@ -46,7 +50,7 @@ const nextConfig: NextConfig = {
   // pdfkit resolves its standard fonts through package "#"-imports that
   // bundlers cannot inline; keep the PDF stack external so the real packages
   // (which we ship via outputFileTracingIncludes) resolve everything.
-  serverExternalPackages: ["@react-pdf/renderer", "pdfkit", "fontkit"],
+  serverExternalPackages: ["@react-pdf/renderer", "@react-pdf/font", "pdfkit", "fontkit"],
   reactStrictMode: false,
   poweredByHeader: false,
   devIndicators: false,
