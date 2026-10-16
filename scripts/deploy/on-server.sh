@@ -39,9 +39,9 @@ set -a; . ./.env; set +a
 if command -v mysql >/dev/null 2>&1 && [ -f db-init.sql ] && [ -n "${DB_NAME:-}" ] && [ -n "${DB_USER:-}" ]; then
   MYSQL_PWD="${DB_PASSWORD:-}" mysql -h "${DB_HOST:-localhost}" -u "$DB_USER" "$DB_NAME" --force < db-init.sql > /tmp/dbinit.log 2>&1
   EXISTING=$(grep -icE "already exists" /tmp/dbinit.log 2>/dev/null || true)
-  OTHER_ERRORS=$(grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -vicE "already exists" || true)
+  OTHER_ERRORS=$(grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -vicE "already exists|duplicate key name" || true)
   echo "DB INIT: applied (pre-existing objects skipped: ${EXISTING:-0}, real errors: ${OTHER_ERRORS:-0})"
-  grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -viE "already exists" | head -4 || true
+  grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -viE "already exists|duplicate key name" | head -4 || true
 else
   echo "DB INIT: SKIPPED (mysql client, db-init.sql or DB creds missing)"
 fi

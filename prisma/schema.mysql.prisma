@@ -12,7 +12,7 @@ generator client {
   // The standalone bundle is BUILT on GitHub's Ubuntu runner but RUNS on the
   // Hostinger server (CloudLinux/RHEL-family). Ship engines for both so the
   // generated client always finds one that loads on the target OS.
-  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "debian-openssl-1.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
