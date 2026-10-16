@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ domain?: string; network?: string; n?: string; autostart?: string }>;
+  searchParams: Promise<{ domain?: string; network?: string; n?: string; autostart?: string; deep?: string }>;
 }) {
   const session = await auth();
   const user = await db.user.findUnique({
@@ -22,7 +22,7 @@ export default async function AuditPage({
       where: { userId: user!.id },
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { id: true, domain: true, target: true, mode: true, status: true, probability: true, verdict: true, batchId: true, createdAt: true },
+      select: { id: true, domain: true, target: true, mode: true, deepScan: true, status: true, probability: true, verdict: true, batchId: true, createdAt: true },
     }),
     searchParams,
   ]);
@@ -30,10 +30,12 @@ export default async function AuditPage({
   return (
     <AuditWorkspace
       costs={costs.audit}
+      deepCost={costs.deepScan ?? 6}
       credits={user!.credits}
       history={history.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() }))}
       initialDomain={typeof sp.domain === "string" ? sp.domain : ""}
       initialNetwork={typeof sp.network === "string" ? sp.network : "ADSENSE"}
+      initialDeep={sp.deep === "1"}
       autostart={sp.n === "1" || sp.autostart === "1"}
     />
   );

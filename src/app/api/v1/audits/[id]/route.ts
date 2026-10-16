@@ -36,6 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       domain: audit.domain,
       network: audit.target,
       mode: audit.mode.toLowerCase(),
+      deep_scan: audit.deepScan,
       status: audit.status.toLowerCase(),
       probability: audit.status === "DONE" ? audit.probability : null,
       verdict: audit.verdict,

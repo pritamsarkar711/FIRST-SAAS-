@@ -7,7 +7,7 @@ import { VerdictBadge } from "@/components/shared/report-ui";
 import { ScoreHistoryChart } from "@/components/dashboard/score-history-chart";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
-  SearchCheck, FileDown, Radar, TrendingUp, TrendingDown, ArrowRight, ExternalLink, History,
+  SearchCheck, FileDown, Radar, TrendingUp, TrendingDown, ArrowRight, ExternalLink, History, ScanSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,7 @@ export default async function DomainTrendPage({ params }: { params: Promise<{ do
       where: { userId: user!.id, domain: { in: [domain, `www.${domain}`] } },
       orderBy: { createdAt: "asc" },
       select: {
-        id: true, target: true, mode: true, status: true, probability: true, verdict: true,
+        id: true, target: true, mode: true, deepScan: true, status: true, probability: true, verdict: true,
         batchId: true, watchItemId: true, report: true, createdAt: true,
       },
     }),
@@ -267,6 +267,11 @@ export default async function DomainTrendPage({ params }: { params: Promise<{ do
                         {a.batchId ? " · batch" : ""}
                         {a.watchItemId ? " · scheduled" : ""}
                       </p>
+                      {a.deepScan && (
+                        <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-primary">
+                          <ScanSearch className="h-3 w-3" aria-hidden="true" /> Deep scan
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {a.status === "DONE" ? (

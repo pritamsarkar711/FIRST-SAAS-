@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw, LineChart, ExternalLink } from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw, LineChart, ExternalLink, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScoreRing, VerdictBadge, StatusIcon } from "@/components/shared/report-ui";
@@ -15,7 +15,7 @@ interface StartResponse {
   audits?: { id: string; domain: string }[]; invalid?: string[];
 }
 interface HistoryItem {
-  id: string; domain: string; target: string; mode: string; status: string;
+  id: string; domain: string; target: string; mode: string; deepScan?: boolean; status: string;
   probability: number; verdict: string | null; batchId: string | null; createdAt: string;
 }
 interface BatchRow { id: string; domain: string; status: string; probability: number; verdict: string | null; error: string | null }
@@ -46,17 +46,21 @@ interface PollState {
 
 export function AuditWorkspace({
   costs,
+  deepCost = 6,
   credits,
   history,
   initialDomain = "",
   initialNetwork = "ADSENSE",
+  initialDeep = false,
   autostart = false,
 }: {
   costs: { normal: number; standard: number; premium: number };
+  deepCost?: number;
   credits: number;
   history: HistoryItem[];
   initialDomain?: string;
   initialNetwork?: string;
+  initialDeep?: boolean;
   autostart?: boolean;
 }) {
   const router = useRouter();
@@ -66,6 +70,7 @@ export function AuditWorkspace({
   const [invalidDomains, setInvalidDomains] = useState<string[]>([]);
   const [network, setNetwork] = useState(initialNetwork);
   const [mode, setMode] = useState("STANDARD");
+  const [deepScan, setDeepScan] = useState(initialDeep);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [poll, setPoll] = useState<PollState | null>(null);
@@ -81,8 +86,9 @@ export function AuditWorkspace({
   }, []);
 
   const modeCost = costs[mode.toLowerCase() as "normal" | "standard" | "premium"];
+  const perAuditCost = modeCost + (deepScan ? deepCost : 0);
 
-  const startAudit = useCallback(async (d: string, n: string, m: string) => {
+  const startAudit = useCallback(async (d: string, n: string, m: string, deep: boolean) => {
     setError("");
     setBusy(true);
     setBatch(null);
@@ -91,7 +97,7 @@ export function AuditWorkspace({
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: d, network: n, mode: m }),
+        body: JSON.stringify({ domain: d, network: n, mode: m, deepScan: deep }),
       });
       const data: StartResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -103,7 +109,12 @@ export function AuditWorkspace({
         }
         return;
       }
-      const id = data.id!;
+      const id = data.id || data.audits?.[0]?.id;
+      if (!id) {
+        setPoll(null);
+        setError("Could not start the audit. Try again.");
+        return;
+      }
       setPoll({ status: "PENDING", domain: d, id });
       pollRef.current = setInterval(async () => {
         try {
@@ -125,15 +136,14 @@ export function AuditWorkspace({
       setBusy(false);
     }
   }, [credits, router, stopPolling]);
-
   const parsedBatchDomains = batchInput
     .split(/[\n,]/)
     .map((s) => s.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase())
     .filter(Boolean);
   const uniqueBatch = Array.from(new Set(parsedBatchDomains)).slice(0, MAX_BATCH);
-  const batchCost = uniqueBatch.length * modeCost;
+  const batchCost = uniqueBatch.length * perAuditCost;
 
-  const startBatch = useCallback(async (domains: string[], n: string, m: string) => {
+  const startBatch = useCallback(async (domains: string[], n: string, m: string, deep: boolean) => {
     setError("");
     setInvalidDomains([]);
     setBusy(true);
@@ -142,7 +152,7 @@ export function AuditWorkspace({
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domains, network: n, mode: m }),
+        body: JSON.stringify({ domains, network: n, mode: m, deepScan: deep }),
       });
       const data: StartResponse = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -202,7 +212,7 @@ export function AuditWorkspace({
   useEffect(() => {
     if (autostart && domain && !startedRef.current) {
       startedRef.current = true;
-      void startAudit(domain, network, "STANDARD");
+      void startAudit(domain, network, "STANDARD", false);
     }
     return stopPolling;
   }, [autostart, domain, network, startAudit, stopPolling]);
@@ -214,7 +224,7 @@ export function AuditWorkspace({
         setError("Enter at least one domain, one per line.");
         return;
       }
-      await startBatch(uniqueBatch, network, mode);
+      await startBatch(uniqueBatch, network, mode, deepScan);
       return;
     }
     const d = domain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -222,11 +232,11 @@ export function AuditWorkspace({
       setError("Enter a valid domain, for example myblog.com");
       return;
     }
-    await startAudit(d, network, mode);
+    await startAudit(d, network, mode, deepScan);
   }
 
-  const enough = tab === "batch" ? credits >= batchCost : credits >= modeCost;
-  const displayCost = tab === "batch" ? batchCost : modeCost;
+  const enough = tab === "batch" ? credits >= batchCost : credits >= perAuditCost;
+  const displayCost = tab === "batch" ? batchCost : perAuditCost;
 
   return (
     <div className="space-y-8">
@@ -302,7 +312,10 @@ export function AuditWorkspace({
               )}
             >
               {m.badge && <span className="absolute -top-2 right-3 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{m.badge}</span>}
-              <p className="font-bold text-foreground">{m.title}</p>
+              <p className="flex items-center justify-between font-bold text-foreground">
+                {m.title}
+                {mode === m.value && <CircleCheck className="h-4 w-4 text-primary" aria-hidden="true" />}
+              </p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{m.desc}</p>
               <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary">
                 <Coins className="h-3.5 w-3.5" /> {costs[m.value.toLowerCase() as "normal" | "standard" | "premium"]} credits
@@ -310,6 +323,46 @@ export function AuditWorkspace({
             </button>
           ))}
         </div>
+
+        {/* Deep scan toggle */}
+        <label
+          className={cn(
+            "mt-3 flex cursor-pointer items-start gap-3 rounded-md border p-3.5 transition-colors",
+            deepScan ? "border-primary bg-accent" : "border-border bg-card hover:border-input"
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={deepScan}
+            onChange={(e) => setDeepScan(e.target.checked)}
+            className="sr-only"
+            aria-describedby="deep-scan-desc"
+          />
+          <span
+            aria-hidden="true"
+            className={cn(
+              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border",
+              deepScan ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card"
+            )}
+          >
+            {deepScan && (
+              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6.5 4.7 9 10 3.4" />
+              </svg>
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-foreground">Deep scan</span>
+              <span className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                <ScanSearch className="h-3 w-3" aria-hidden="true" /> +{deepCost} credits
+              </span>
+            </span>
+            <span id="deep-scan-desc" className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+              Samples 10 articles instead of 3, reads every sitemap in the index, and opens your About, Contact, Privacy and Terms pages for real to verify they exist and hold real content. Also measures publishing freshness and the share of thin posts.
+            </span>
+          </span>
+        </label>
 
         {error && <p className="mt-4 rounded-md bg-risk-soft px-3 py-2.5 text-sm font-medium text-risk" role="alert">
           {error} {error.includes("credits") && <Link href="/dashboard/billing" className="underline font-bold">Buy credits</Link>}
@@ -323,7 +376,10 @@ export function AuditWorkspace({
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             {tab === "batch" && uniqueBatch.length > 0 && (
-              <span className="font-semibold text-foreground">{uniqueBatch.length} {uniqueBatch.length === 1 ? "site" : "sites"} × {modeCost} = </span>
+              <span className="font-semibold text-foreground">{uniqueBatch.length} {uniqueBatch.length === 1 ? "site" : "sites"} × {perAuditCost} = </span>
+            )}
+            {deepScan && tab === "single" && (
+              <span className="font-semibold text-foreground">{modeCost} + {deepCost} deep = </span>
             )}
             Balance: <span className="font-bold text-foreground">{credits.toLocaleString()}</span> credits
             {!enough && <span className="ml-1 font-semibold text-risk">(need {displayCost})</span>}
@@ -467,7 +523,7 @@ export function AuditWorkspace({
                 scoreFilter === "close" ? h.status === "DONE" && h.probability >= 45 && h.probability < 70 :
                 h.status === "DONE" && h.probability < 45
               ).map((h) => (
-                <li key={h.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
+                <li key={h.id} className="flex flex-col gap-2 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-center">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold uppercase text-primary" aria-hidden="true">
                     {h.domain.replace(/^www\./, "").charAt(0)}
                   </div>
@@ -485,6 +541,7 @@ export function AuditWorkspace({
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                       <span>{networkLabel(h.target)}</span>
                       <span>{h.mode.charAt(0) + h.mode.slice(1).toLowerCase()} mode</span>
+                      {h.deepScan && <span className="inline-flex items-center gap-1 font-semibold text-primary"><ScanSearch className="h-3 w-3" aria-hidden="true" />Deep scan</span>}
                       <span>{new Date(h.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                     </p>
                   </div>
@@ -492,7 +549,7 @@ export function AuditWorkspace({
                     {(h.status === "DONE" || h.status === "FAILED") && (
                       <button
                         type="button"
-                        onClick={() => { setTab("single"); setDomain(h.domain); setNetwork(h.target); setMode(h.mode); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        onClick={() => { setTab("single"); setDomain(h.domain); setNetwork(h.target); setMode(h.mode); setDeepScan(h.deepScan === true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                         className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
                         title={`Run ${h.domain} again`}
                         aria-label={`Run ${h.domain} again with the same settings`}

@@ -328,3 +328,50 @@ Stage Summary:
 - AdAudit now has a public developer API with hashed keys, per-key rate limits and usage counters, a marketing docs page, and a funnel link from the hero to the free tool.
 - Sandbox state: test user has 94 credits, one ACTIVE key "Zapier webhook" (ak_kGZ0MD86···) and one revoked "CI script"; the full secret for the active key was printed in this session only. Admin password unchanged. New spawn procedure keeps dev.log appended with a 1536MB heap cap.
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs a public URL); per-key credit budgets/spend caps; API usage page for users (charts over requestCount); deep-scan mode sampling more sitemap articles; consider trimming Turbopack workers to stop repeat OOM kills.
+
+---
+Task ID: 10 (cron round 8)
+Agent: Z.ai cron review
+Task: QA assessment + Deep Scan audit mode, API usage analytics, bug fixes, styling details
+
+Work Log (status assessment first):
+- QA at round start: lint clean, all 17 public routes 200, dashboard routes 307, dev.log clean, browser QA (desktop 1366 + mobile 390, light + dark) on home/dashboard/settings: no defects, no hydration badges. Platform stable -> feature work per mandate.
+
+Features added:
+- DEEP SCAN AUDIT MODE (new paid upgrade on the core audit):
+  - Schema: Audit.deepScan Boolean @default(false); ApiKeyUsage model (keyId+day unique, count) for per-day API usage. db:push done + prisma generate + dev server restarted (documented procedure).
+  - Crawler deep mode (crawlSite(domain, {deep})): samples 10 articles instead of 3 with STRIDE sampling across the whole sitemap pool (not just the first N) so old and new posts are both represented; traverses up to 8 child sitemaps in a sitemap index (vs 1); fetches and verifies About/Contact/Privacy/Terms pages for real (navPageChecks: status, word count, hasContent >= 150 words); probes one homepage category link (categoryCheck: status, words, internal article links); computes contentFreshness (newest/oldest publish dates, dated count, within 90d/365d) and thinArticleRatio (share of sampled articles under 600 words). All honest: absent signals render as explicit "not found" copy, never fabricated.
+  - Credits: new costs.deepScan surcharge (default 6) added to the mode cost when enabled; admin Settings > Credit costs has the "Audit: Deep scan surcharge" field + explainer.
+  - API: POST /api/audit and POST /api/v1/audits accept deepScan / deep_scan; Activity details include " · deep"; v1 publicAudit includes deep_scan.
+  - UI: audit workspace deep-scan toggle (custom checkbox card, ScanSearch icon, "+6 credits" badge, plain-language description, works in single and batch tabs); submit bar shows "12 + 6 deep =" breakdown; audit history rows show a "Deep scan" chip; domain deep-dive check history shows the chip too; re-run preserves deepScan.
+  - Report: header shows a DEEP SCAN chip; new "Deep scan evidence" card (policy pages opened with color-coded status + word counts, content freshness grid, category page probe, thin content %, sitemap files read) with honest fallbacks; shared by dashboard, share, and sample-report pages.
+  - PDF: cover meta shows "Standard + deep scan"; findings page gains a "Deep scan evidence" block (policy page table + freshness/thin/category summary, conditional copy when no dates exist).
+  - AI: DEEP_HINT appended to the system prompt so the model weighs and cites the verified evidence.
+  - VERIFIED end-to-end against waitbutwhy.com: 10 articles sampled, 3 sitemaps traversed, Contact 671 words + Privacy 5,782 words verified, thinArticleRatio 80% (real: sampled posts include genuinely short mini-posts), honest nulls for category (none on homepage) and freshness (no structured dates); credits deducted exactly once (94 -> 76, 18 = 12+6); AI cited the evidence ("Contact page with 671 words"); PDF page 4 shows the evidence block; v1 detail returns deep_scan: true.
+  - Sample report (/sample-report) now showcases the deep-scan evidence card with realistic fictional data (marketing asset for the upgrade).
+- API USAGE ANALYTICS (user-facing):
+  - authenticateApiKey now upserts a per-day ApiKeyUsage row (fire-and-forget) alongside requestCount.
+  - GET /api/keys returns a 14-day usage series (UTC days, zero-filled) across the user's keys.
+  - Settings > Developer API card gained an "API calls · last 14 days" bar chart (pure div/CSS bars, hover tooltip with count, total in header, aria-label, first-day/Today labels) shown only when the user has keys.
+  - Verified: created a key via UI, made 8 v1 calls, chart shows today's bar at max with "8 total"; key list counters track. Test key revoked afterwards (usage data persists).
+
+Bugs found and fixed this round:
+- SINGLE-AUDIT POLLER BROKEN in the UI: GET /api/audit/undefined 404 in dev.log. Root cause: POST /api/audit returns the audit id inside audits[0].id, but AuditWorkspace.startAudit read data.id (undefined) and polled /api/audit/undefined forever; the audit itself still ran server-side. Fix: id = data.id || data.audits?.[0]?.id with a guard + honest error; POST /api/audit now also returns a top-level id for non-batch starts. Verified: single audit starts now poll correctly.
+- v1 audit detail response missing deep_scan (field existed only in the list endpoint) -> added to GET /api/v1/audits/[id].
+- Crawler bug caught in review before runtime: the deep-scan nav verification referenced cheerio $ outside parseHomepage's scope -> now re-parses home.html with a fresh $h instance.
+
+Styling details:
+- Mode cards: selected mode shows a CircleCheck icon beside the title (clearer selection affordance).
+- Audit history rows: subtle hover:bg-secondary/40 transition for scannability.
+- Deep-scan toggle follows the flat system: 6px radius, single emerald accent, primary/10 chip, no gradients; theme-aware in dark mode.
+- Usage chart bars: rounded-t-sm, muted for zero days, hover color shift, tooltip chip in foreground/background contrast.
+
+Verified this round (desktop 1366 + mobile 390, light + dark):
+- Deep audit end-to-end (crawl evidence above), toggle + cost breakdown, history chips, report + PDF evidence, sample report showcase.
+- Usage chart with real calls; docs page documents deep_scan; admin costs field renders (value 6).
+- Final: lint clean, 17 public routes 200, no unexpected dev.log errors, browser closed.
+
+Stage Summary:
+- AdAudit's core audit gained a monetizable depth upgrade with verifiable evidence (the strongest differentiator yet: "we opened your policy pages for real"), and developer API users get honest per-day usage analytics.
+- Sandbox state: schema changed this round (Audit.deepScan, ApiKeyUsage) and was pushed. Test user: 76 credits, keys: Zapier webhook (active, 1 call), CI script (revoked), Usage QA key (revoked, 8 calls recorded). Admin password unchanged. costs.deepScan=6 default (persists on next admin save).
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs public URL); deep-scan option for watchlist monitors (WatchItem.deepScan + UI); per-key spend caps; API usage page with per-key breakdown (currently one combined chart); site-check tool could reuse navPageChecks for a "policy pages" check; consider trimming Turbopack workers to avoid repeat OOM kills (dev server is capped at 1536MB via NODE_OPTIONS).

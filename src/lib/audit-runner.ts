@@ -36,6 +36,8 @@ const MODE_HINTS: Record<string, string> = {
   PREMIUM: "Mode: PREMIUM. Maximum thoroughness: 5-6 items per section, scrutinize every signal in the crawl data, cross-reference sections, and surface subtle risks most reviewers would miss.",
 };
 
+const DEEP_HINT = "This was a DEEP SCAN: the crawler sampled up to 10 articles, traversed the full sitemap index, verified the About/Contact/Privacy/Terms pages with real HTTP fetches (navPageChecks), probed one category page (categoryCheck), and measured content freshness (contentFreshness) plus the share of thin articles (thinArticleRatio). Weigh this verified evidence in your verdict and cite it in the findings.";
+
 export function networkName(code: string): string {
   return NETWORK_NAMES[code] || code;
 }
@@ -53,12 +55,12 @@ export async function runAudit(auditId: string): Promise<void> {
   try {
     await db.audit.update({ where: { id: auditId }, data: { status: "RUNNING" } });
 
-    const signals = await crawlSite(audit.domain);
+    const signals = await crawlSite(audit.domain, { deep: audit.deepScan });
     await db.audit.update({ where: { id: auditId }, data: { signals: JSON.stringify(signals) } });
 
     const prompts = await getSetting<{ audit: string }>("prompts", { audit: AUDIT_PROMPT_DEFAULT });
     const master = prompts.audit || AUDIT_PROMPT_DEFAULT;
-    const system = `${master}\n\n${MODE_HINTS[audit.mode] || MODE_HINTS.STANDARD}\n\nTarget ad network: ${networkName(audit.target)}.`;
+    const system = `${master}\n\n${MODE_HINTS[audit.mode] || MODE_HINTS.STANDARD}${audit.deepScan ? `\n\n${DEEP_HINT}` : ""}\n\nTarget ad network: ${networkName(audit.target)}.`;
 
     const user = `Website URL: ${audit.domain}
 Crawl results (real data, JSON):

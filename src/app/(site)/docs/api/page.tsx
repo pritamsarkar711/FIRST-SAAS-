@@ -10,7 +10,7 @@ const ENDPOINTS = [
   {
     method: "POST",
     path: "/api/v1/audits",
-    body: `{ "domain": "myblog.com", "network": "ADSENSE", "mode": "STANDARD" }`,
+    body: `{ "domain": "myblog.com", "network": "ADSENSE", "mode": "STANDARD", "deep_scan": false }`,
     desc: "Starts one audit and deducts credits from your account balance. Returns 202 with the audit id. Poll the audit endpoint until status is done or failed.",
   },
   {
@@ -127,6 +127,7 @@ export default function ApiDocsPage() {
               <tr><Td><code className="font-mono text-xs text-foreground">domain</code></Td><Td>Yes</Td><Td>The site to audit, e.g. myblog.com. No http, no path.</Td></tr>
               <tr><Td><code className="font-mono text-xs text-foreground">network</code></Td><Td>No</Td><Td>ADSENSE (default), EZOIC, MEDIAVINE, RAPTIVE.</Td></tr>
               <tr><Td><code className="font-mono text-xs text-foreground">mode</code></Td><Td>No</Td><Td>NORMAL, STANDARD (default), PREMIUM. Deeper modes cost more credits and review policy more closely.</Td></tr>
+              <tr><Td><code className="font-mono text-xs text-foreground">deep_scan</code></Td><Td>No</Td><Td>true or false (default). Samples 10 articles instead of 3, reads every sitemap in the index, verifies the About, Contact, Privacy and Terms pages with real requests, and measures content freshness. Costs a surcharge on top of the mode price.</Td></tr>
             </tbody>
           </table>
         </div>

@@ -13,6 +13,7 @@ const startSchema = z.object({
   domain: z.string().trim().min(4).max(120),
   network: z.enum(["ADSENSE", "EZOIC", "MEDIAVINE", "RAPTIVE"]).default("ADSENSE"),
   mode: z.enum(["NORMAL", "STANDARD", "PREMIUM"]).default("STANDARD"),
+  deep_scan: z.boolean().default(false),
 });
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
@@ -21,13 +22,14 @@ const IP_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 function publicAudit(a: {
   id: string; domain: string; target: string; mode: string; status: string;
   probability: number; verdict: string | null; error: string | null;
-  creditsUsed: number; createdAt: Date; updatedAt: Date;
+  creditsUsed: number; deepScan: boolean; createdAt: Date; updatedAt: Date;
 }) {
   return {
     id: a.id,
     domain: a.domain,
     network: a.target,
     mode: a.mode.toLowerCase(),
+    deep_scan: a.deepScan,
     status: a.status.toLowerCase(), // pending | running | done | failed
     probability: a.status === "DONE" ? a.probability : null,
     verdict: a.verdict,
@@ -68,15 +70,15 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = startSchema.safeParse(body);
   if (!parsed.success) {
-    return v1Error("Invalid request body. Provide { domain, network?, mode? }.", 400, {
-      fields: ["domain (required)", "network: ADSENSE | EZOIC | MEDIAVINE | RAPTIVE", "mode: NORMAL | STANDARD | PREMIUM"],
+    return v1Error("Invalid request body. Provide { domain, network?, mode?, deep_scan? }.", 400, {
+      fields: ["domain (required)", "network: ADSENSE | EZOIC | MEDIAVINE | RAPTIVE", "mode: NORMAL | STANDARD | PREMIUM", "deep_scan: true samples 10 articles and verifies policy pages (extra credits)"],
     });
   }
 
   const user = await db.user.findUnique({ where: { id: authResult.userId } });
   if (!user) return v1Error("Account not found.", 401);
 
-  const { network, mode } = parsed.data;
+  const { network, mode, deep_scan: deepScan } = parsed.data;
   const domain = normalizeDomain(parsed.data.domain);
   if (!DOMAIN_RE.test(domain) || IP_RE.test(domain)) {
     return v1Error("That domain does not look valid. Example: myblog.com", 400);
@@ -88,7 +90,9 @@ export async function POST(req: NextRequest) {
   }
 
   const costs = await getCosts();
-  const creditsUsed = costs.audit[mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12;
+  const creditsUsed =
+    (costs.audit[mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12) +
+    (deepScan ? costs.deepScan ?? 6 : 0);
 
   const ok = await deductCredits(user.id, creditsUsed);
   if (!ok) {
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
       domain,
       target: network,
       mode,
+      deepScan,
       status: "PENDING",
       creditsUsed,
     },
@@ -115,7 +120,7 @@ export async function POST(req: NextRequest) {
     action: "API_AUDIT_START",
     actorEmail: authResult.actorEmail || user.email,
     userId: user.id,
-    detail: `${domain} · ${network} · ${mode.toLowerCase()} · key ${authResult.keyName}`,
+    detail: `${domain} · ${network} · ${mode.toLowerCase()}${deepScan ? " · deep" : ""} · key ${authResult.keyName}`,
     ip: clientIp(req),
   });
 

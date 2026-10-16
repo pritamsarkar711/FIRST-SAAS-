@@ -112,7 +112,7 @@ function ListBlock({ title, items, color }: { title: string; items: string[]; co
 }
 
 function AuditPdfDoc({
-  domain, target, mode, date, report, siteName, summaryData,
+  domain, target, mode, date, report, siteName, summaryData, deep, deepData,
 }: {
   domain: string;
   target: string;
@@ -121,6 +121,16 @@ function AuditPdfDoc({
   report: AuditReport;
   siteName: string;
   summaryData: { pages: number; articles: number; platform: string } | null;
+  deep: boolean;
+  deepData: {
+    nav: { path: string; status: number; words: number; hasContent: boolean }[];
+    newest: string | null;
+    oldest: string | null;
+    dated: number;
+    recent90: number;
+    thin: number | null;
+    category: { url: string; status: number; words: number; links: number } | null;
+  } | null;
 }) {
   const scoreColor = report.probability >= 70 ? C.ok : report.probability >= 45 ? C.warn : C.risk;
   return (
@@ -148,7 +158,7 @@ function AuditPdfDoc({
           </View>
           <View style={s.metaBox}>
             <Text style={s.metaLabel}>Analysis mode</Text>
-            <Text style={s.metaValue}>{mode.charAt(0) + mode.slice(1).toLowerCase()}</Text>
+            <Text style={s.metaValue}>{mode.charAt(0) + mode.slice(1).toLowerCase()}{deep ? " + deep scan" : ""}</Text>
           </View>
           {summaryData ? (
             <>
@@ -207,6 +217,30 @@ function AuditPdfDoc({
       <Page size="A4" style={s.page}>
         <Text style={s.h2}>Detailed findings</Text>
         {(report.sections || []).map((sec, i) => <SectionBlock key={i} section={sec} />)}
+        {deep && deepData && (deepData.nav.length > 0 || deepData.dated > 0 || deepData.category) ? (
+          <View wrap={false} style={{ marginTop: 18 }}>
+            <Text style={s.h2}>Deep scan evidence</Text>
+            {deepData.nav.length > 0 && (
+              <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 6 }}>
+                {deepData.nav.map((p, i) => (
+                  <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: i < deepData.nav.length - 1 ? 1 : 0, borderBottomColor: C.border }}>
+                    <Text style={{ fontSize: 9.5, fontWeight: 700, textTransform: "capitalize" }}>{p.path} page</Text>
+                    <Text style={{ fontSize: 9.5, color: p.hasContent ? C.ok : p.status === 200 ? C.warn : C.risk }}>
+                      {p.status === 200 ? `${p.words.toLocaleString()} words${p.hasContent ? "" : " (thin)"}` : `HTTP ${p.status}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Text style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 8 }}>
+              {deepData.dated > 0
+                ? `Freshness: newest sampled post ${deepData.newest || "not dated"}, oldest ${deepData.oldest || "not dated"}; ${deepData.recent90} of ${deepData.dated} dated articles were published or updated in the last 90 days.`
+                : "No publish dates were found in the sampled articles."}
+              {deepData.thin !== null ? ` ${Math.round(deepData.thin * 100)}% of sampled articles are under 600 words.` : ""}
+              {deepData.category ? ` Category page probe (${deepData.category.url}): HTTP ${deepData.category.status}, ${deepData.category.words.toLocaleString()} words, ${deepData.category.links} links.` : ""}
+            </Text>
+          </View>
+        ) : null}
         <Text style={s.footer} fixed>
           <Text>{siteName} · {domain}</Text>
           <Text render={({ pageNumber }) => `Page ${pageNumber}`} />
@@ -254,9 +288,17 @@ export async function buildAuditPdf(opts: {
   signals: unknown;
   siteName: string;
 }): Promise<Buffer> {
-  const sig = (opts.signals && typeof opts.signals === "object" ? opts.signals : null) as
-    | { estimatedPages?: number; articles?: { length: number }[]; homepage?: { platform?: string } }
-    | null;
+  interface DeepSig {
+    estimatedPages?: number;
+    articles?: { length: number }[];
+    homepage?: { platform?: string };
+    deepScan?: boolean;
+    navPageChecks?: { path: string; url: string; statusCode: number; wordCount: number; hasContent: boolean }[];
+    categoryCheck?: { url: string; statusCode: number; wordCount: number; articleLinks: number } | null;
+    contentFreshness?: { newest: string | null; oldest: string | null; datedArticles: number; within365d: number; within90d: number } | null;
+    thinArticleRatio?: number | null;
+  }
+  const sig = (opts.signals && typeof opts.signals === "object" ? opts.signals : null) as DeepSig | null;
   const summaryData = sig
     ? {
         pages: Number(sig.estimatedPages || 0),
@@ -264,6 +306,16 @@ export async function buildAuditPdf(opts: {
         platform: sig.homepage?.platform || "Unknown",
       }
     : null;
+  const deep = sig?.deepScan === true;
+  const deepData = deep && sig ? {
+    nav: (sig.navPageChecks || []).slice(0, 4).map((p) => ({ path: p.path, status: p.statusCode, words: p.wordCount, hasContent: p.hasContent })),
+    newest: sig.contentFreshness?.newest || null,
+    oldest: sig.contentFreshness?.oldest || null,
+    dated: sig.contentFreshness?.datedArticles || 0,
+    recent90: sig.contentFreshness?.within90d || 0,
+    thin: typeof sig.thinArticleRatio === "number" ? sig.thinArticleRatio : null,
+    category: sig.categoryCheck ? { url: sig.categoryCheck.url, status: sig.categoryCheck.statusCode, words: sig.categoryCheck.wordCount, links: sig.categoryCheck.articleLinks } : null,
+  } : null;
 
   return renderToBuffer(
     <AuditPdfDoc
@@ -274,6 +326,8 @@ export async function buildAuditPdf(opts: {
       report={opts.report}
       siteName={opts.siteName}
       summaryData={summaryData}
+      deep={deep}
+      deepData={deepData}
     />
   );
 }

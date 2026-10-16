@@ -11,6 +11,7 @@ const single = z.object({
   domain: z.string().trim().min(4).max(120),
   network: z.enum(["ADSENSE", "EZOIC", "MEDIAVINE", "RAPTIVE"]),
   mode: z.enum(["NORMAL", "STANDARD", "PREMIUM"]),
+  deepScan: z.boolean().optional().default(false),
 });
 
 const batch = single.omit({ domain: true }).extend({ domains: z.array(z.string().trim().min(4).max(120)).min(1).max(10) });
@@ -53,8 +54,11 @@ export async function POST(req: NextRequest) {
   if (user.status === "SUSPENDED") return NextResponse.json({ error: "This account is suspended." }, { status: 403 });
 
   const { network, mode } = parsed.data;
+  const deepScan = (parsed.data as { deepScan?: boolean }).deepScan === true;
   const costs = await getCosts();
-  const creditsUsed = costs.audit[mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12;
+  const creditsUsed =
+    (costs.audit[mode.toLowerCase() as "normal" | "standard" | "premium"] ?? 12) +
+    (deepScan ? costs.deepScan ?? 6 : 0);
 
   // Resolve every target up front. Invalid domains are reported before any credit moves.
   const rawDomains = isBatch ? (parsed.data as z.infer<typeof batch>).domains : [parsed.data.domain];
@@ -103,6 +107,7 @@ export async function POST(req: NextRequest) {
           domain,
           target: network,
           mode,
+          deepScan,
           status: "PENDING",
           creditsUsed,
           batchId,
@@ -118,9 +123,9 @@ export async function POST(req: NextRequest) {
     action: isBatch && valid.length > 1 ? "AUDIT_BATCH_START" : "AUDIT_START",
     actorEmail: user.email,
     userId: user.id,
-    detail: `${valid.join(", ")} · ${network} · ${mode.toLowerCase()}`,
+    detail: `${valid.join(", ")} · ${network} · ${mode.toLowerCase()}${deepScan ? " · deep" : ""}`,
     ip,
   });
 
-  return NextResponse.json({ ok: true, batchId, audits: created.map((a) => ({ id: a.id, domain: a.domain })), creditsUsed: totalCost, invalid });
+  return NextResponse.json({ ok: true, id: created[0]?.id, batchId, audits: created.map((a) => ({ id: a.id, domain: a.domain })), creditsUsed: totalCost, invalid });
 }

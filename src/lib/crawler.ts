@@ -49,6 +49,21 @@ export interface SampledArticle {
   title: string;
 }
 
+export interface NavPageCheck {
+  path: string;
+  url: string;
+  statusCode: number;
+  wordCount: number;
+  hasContent: boolean;
+}
+
+export interface CategoryCheck {
+  url: string;
+  statusCode: number;
+  wordCount: number;
+  articleLinks: number;
+}
+
 export interface CrawlSignals {
   domain: string;
   fetchedAt: string;
@@ -58,6 +73,13 @@ export interface CrawlSignals {
   articles: SampledArticle[];
   estimatedPages: number;
   errors: string[];
+  // Deep-scan only signals (absent or empty on standard crawls)
+  deepScan?: boolean;
+  sitemapsTraversed?: number;
+  navPageChecks?: NavPageCheck[];
+  categoryCheck?: CategoryCheck | null;
+  contentFreshness?: { newest: string | null; oldest: string | null; datedArticles: number; within365d: number; within90d: number } | null;
+  thinArticleRatio?: number | null;
 }
 
 async function fetchPage(url: string): Promise<{ ok: boolean; status: number; html: string; ms: number; finalUrl: string }> {
@@ -203,7 +225,8 @@ export function parseArticle(html: string, url: string, status: number): Sampled
   };
 }
 
-export async function crawlSite(rawDomain: string): Promise<CrawlSignals> {
+export async function crawlSite(rawDomain: string, opts?: { deep?: boolean }): Promise<CrawlSignals> {
+  const deep = !!opts?.deep;
   const domain = normalizeDomain(rawDomain);
   await assertPublicUrl(domain); // SSRF guard: resolve + reject private targets
   const errors: string[] = [];
@@ -214,17 +237,17 @@ export async function crawlSite(rawDomain: string): Promise<CrawlSignals> {
     // try www
     const alt = await fetchPage(`https://www.${domain}`);
     if (alt.ok && alt.html) {
-      return crawlFromHome(alt, `https://www.${domain}`, domain, errors, true);
+      return crawlFromHome(alt, `https://www.${domain}`, domain, errors, true, deep);
     }
     errors.push(`Homepage request failed (status ${home.status || "network error"})`);
     return {
       domain, fetchedAt: new Date().toISOString(), homepage: null,
       robots: { exists: false, sitemapDeclared: false, blocksAll: false },
       sitemap: { exists: false, urlCount: 0, samples: [] },
-      articles: [], estimatedPages: 0, errors,
+      articles: [], estimatedPages: 0, errors, deepScan: deep,
     };
   }
-  return crawlFromHome(home, home.finalUrl || base, domain, errors, false);
+  return crawlFromHome(home, home.finalUrl || base, domain, errors, false, deep);
 }
 
 async function crawlFromHome(
@@ -232,7 +255,8 @@ async function crawlFromHome(
   homeUrl: string,
   domain: string,
   errors: string[],
-  usedWww: boolean
+  usedWww: boolean,
+  deep: boolean
 ): Promise<CrawlSignals> {
   const homepage = parseHomepage(home.html, homeUrl, home.status, home.ms, home.finalUrl);
   if (usedWww) errors.push("Site is only reachable at www." + domain);
@@ -255,29 +279,46 @@ async function crawlFromHome(
     }
   }
   let sitemap = { exists: false, urlCount: 0, samples: [] as string[] };
+  let sitemapsTraversed = 0;
   if (sitemapXml.includes("<urlset") || sitemapXml.includes("<sitemapindex")) {
-    const $ = cheerio.load(sitemapXml, { xmlMode: true });
-    let locs = $("loc").map((_, el) => $(el).text().trim()).get();
+    const collect = (xml: string): string[] => {
+      const $ = cheerio.load(xml, { xmlMode: true });
+      return $("loc").map((_, el) => $(el).text().trim()).get();
+    };
+    let locs = collect(sitemapXml);
     if (sitemapXml.includes("<sitemapindex")) {
-      // fetch first child sitemap
-      const child = locs.find((l) => l.includes(".xml"));
-      if (child) {
+      // standard: first child only; deep: up to 8 child sitemaps (posts sitemaps usually come first)
+      const children = locs.filter((l) => l.includes(".xml")).slice(0, deep ? 8 : 1);
+      const all: string[] = [];
+      for (const child of children) {
         const childXml = await fetchText(child);
-        const $$ = cheerio.load(childXml, { xmlMode: true });
-        locs = $$("loc").map((_, el) => $$(el).text().trim()).get();
+        if (childXml.includes("<urlset")) {
+          sitemapsTraversed++;
+          all.push(...collect(childXml));
+        }
       }
+      if (sitemapsTraversed === 0) errors.push("Sitemap index declared but none of its child sitemaps could be read");
+      locs = all.length ? all : locs.filter((l) => !l.includes(".xml"));
+    } else {
+      sitemapsTraversed = 1;
     }
     const pages = locs.filter((l) => !/\.(jpg|jpeg|png|gif|webp|pdf|zip|mp4)$/i.test(l));
-    sitemap = { exists: true, urlCount: pages.length, samples: pages.slice(0, 12) };
+    sitemap = { exists: true, urlCount: pages.length, samples: pages.slice(0, deep ? 40 : 12) };
   }
 
-  // sample up to 3 article pages (prefer post-looking URLs, skip home/policy pages)
-  const candidates = sitemap.samples
+  // sample up to 3 article pages (up to 10 on deep scans; prefer post-looking URLs, skip home/policy pages).
+  // When the pool is larger than the sample size, stride across it so old and new posts are both represented.
+  const pool = sitemap.samples
     .filter((u) => {
       const p = new URL(u).pathname;
       return p.split("/").filter(Boolean).length >= 1 && !/\/(about|contact|privacy|terms|disclaimer|category|tag|author|page)\b/i.test(p);
-    })
-    .slice(0, 3);
+    });
+  const sampleSize = deep ? 10 : 3;
+  let candidates = pool;
+  if (pool.length > sampleSize) {
+    const stride = pool.length / sampleSize;
+    candidates = Array.from(new Set(Array.from({ length: sampleSize }, (_, i) => pool[Math.floor(i * stride)])));
+  }
   const articles: SampledArticle[] = [];
   if (candidates.length) {
     const results = await Promise.all(candidates.map(async (u) => {
@@ -286,6 +327,80 @@ async function crawlFromHome(
       return null;
     }));
     for (const r of results) if (r) articles.push(r);
+  }
+
+  // Deep-scan extras: verify policy/nav pages with real fetches, probe one category page, measure freshness
+  let navPageChecks: NavPageCheck[] = [];
+  let categoryCheck: CategoryCheck | null = null;
+  let contentFreshness: CrawlSignals["contentFreshness"] = null;
+  let thinArticleRatio: number | null = null;
+
+  if (deep && homepage) {
+    const navTargets: [string, RegExp][] = [
+      ["about", /\/about(-us|-me)?\/?$/i],
+      ["contact", /\/contact(-us|-me)?\/?$/i],
+      ["privacy", /\/privacy(-policy)?\/?$/i],
+      ["terms", /\/(terms(-of-(service|use))?|tos)\/?$/i],
+    ];
+    const origin = new URL(homepage.url).origin;
+    const $h = cheerio.load(home.html); // fresh parse: parseHomepage strips scripts/attrs we need
+    const found: { path: string; url: string }[] = [];
+    for (const [path, re] of navTargets) {
+      const link = $h("a[href]").toArray().map((el) => $h(el).attr("href") || "").find((h) => {
+        try { return re.test(new URL(h, origin).pathname); } catch { return false; }
+      });
+      if (link) {
+        try { found.push({ path, url: new URL(link, origin).toString() }); } catch { /* skip */ }
+      }
+    }
+    const checks = await Promise.all(found.map(async ({ path, url }) => {
+      const r = await fetchPage(url);
+      if (!r.ok || !r.html) return { path, url, statusCode: r.status, wordCount: 0, hasContent: false };
+      const $$ = cheerio.load(r.html);
+      $$("script,style,noscript,svg,nav,footer,header").remove();
+      const words = ($$("main").length ? $$("main").text() : $$("body").text()).replace(/\s+/g, " ").trim();
+      const wordCount = words ? words.split(/\s+/).length : 0;
+      return { path, url, statusCode: r.status, wordCount, hasContent: wordCount >= 150 };
+    }));
+    navPageChecks = checks.slice(0, 4);
+
+    if (homepage.categoryLinks.length) {
+      const catUrl = new URL(homepage.categoryLinks[0], origin).toString();
+      const r = await fetchPage(catUrl);
+      if (r.ok && r.html) {
+        const $c = cheerio.load(r.html);
+        $c("script,style,noscript,svg").remove();
+        const catWords = $c("body").text().replace(/\s+/g, " ").trim();
+        const articleLinks = $c("a[href]").toArray().filter((el) => {
+          const href = $c(el).attr("href") || "";
+          try {
+            const abs = new URL(href, catUrl);
+            return abs.hostname === new URL(catUrl).hostname && !/\/(category|tag|page|about|contact|privacy|terms|#)/i.test(abs.pathname) && abs.pathname.replace(/\/$/, "").split("/").filter(Boolean).length >= 1;
+          } catch { return false; }
+        }).length;
+        categoryCheck = { url: catUrl, statusCode: r.status, wordCount: catWords ? catWords.split(/\s+/).length : 0, articleLinks };
+      } else {
+        categoryCheck = { url: catUrl, statusCode: r.status, wordCount: 0, articleLinks: 0 };
+      }
+    }
+
+    const dates = articles.map((a) => a.datePublished).filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}/.test(d));
+    if (dates.length) {
+      const now = Date.now();
+      const DAY = 86_400_000;
+      const parsed = dates.map((d) => new Date(d.slice(0, 10)).getTime()).filter((t) => Number.isFinite(t));
+      contentFreshness = {
+        newest: parsed.length ? new Date(Math.max(...parsed)).toISOString().slice(0, 10) : null,
+        oldest: parsed.length ? new Date(Math.min(...parsed)).toISOString().slice(0, 10) : null,
+        datedArticles: parsed.length,
+        within90d: parsed.filter((t) => now - t <= 90 * DAY).length,
+        within365d: parsed.filter((t) => now - t <= 365 * DAY).length,
+      };
+    }
+    if (articles.length) {
+      const thin = articles.filter((a) => a.wordCount > 0 && a.wordCount < 600).length;
+      thinArticleRatio = Math.round((thin / articles.length) * 100) / 100;
+    }
   }
 
   const estimatedPages = sitemap.exists ? sitemap.urlCount : homepage.internalLinks;
@@ -299,5 +414,11 @@ async function crawlFromHome(
     articles,
     estimatedPages,
     errors,
+    deepScan: deep,
+    sitemapsTraversed: sitemapsTraversed || undefined,
+    navPageChecks: navPageChecks.length ? navPageChecks : undefined,
+    categoryCheck,
+    contentFreshness,
+    thinArticleRatio: thinArticleRatio ?? undefined,
   };
 }

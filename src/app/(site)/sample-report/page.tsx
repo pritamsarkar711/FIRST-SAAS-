@@ -113,6 +113,16 @@ const SAMPLE_SIGNALS = {
   articles: [{ length: 540 }, { length: 610 }],
   sitemap: { exists: true, urlCount: 8 },
   homepage: { platform: "WordPress" },
+  deepScan: true,
+  sitemapsTraversed: 2,
+  navPageChecks: [
+    { path: "about", url: "https://mygreengarden.com/about/", statusCode: 200, wordCount: 410, hasContent: true },
+    { path: "contact", url: "https://mygreengarden.com/contact/", statusCode: 200, wordCount: 95, hasContent: false },
+    { path: "privacy", url: "https://mygreengarden.com/privacy-policy/", statusCode: 200, wordCount: 1240, hasContent: true },
+  ],
+  categoryCheck: { url: "https://mygreengarden.com/category/vegetables/", statusCode: 200, wordCount: 210, articleLinks: 6 },
+  contentFreshness: { newest: "2026-09-28", oldest: "2026-04-11", datedArticles: 10, within365d: 10, within90d: 3 },
+  thinArticleRatio: 0.3,
 };
 
 export default function SampleReportPage() {

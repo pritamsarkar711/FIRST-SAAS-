@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Terminal, Copy, CircleCheck, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Terminal, Copy, CircleCheck, Plus, Trash2, ExternalLink, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -17,8 +17,11 @@ interface ApiKeyRow {
   createdAt: string;
 }
 
+interface UsageDay { day: string; count: number }
+
 export function ApiKeysCard() {
   const [keys, setKeys] = useState<ApiKeyRow[] | null>(null);
+  const [usage, setUsage] = useState<UsageDay[] | null>(null);
   const [maxActive, setMaxActive] = useState(5);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState("");
@@ -33,11 +36,14 @@ export function ApiKeysCard() {
         const d = await res.json();
         setKeys(d.keys || []);
         setMaxActive(d.maxActive ?? 5);
+        setUsage(Array.isArray(d.usage) ? d.usage : []);
       } else {
         setKeys([]);
+        setUsage([]);
       }
     } catch {
       setKeys([]);
+      setUsage([]);
     }
   }, []);
   useInitialFetch(load);
@@ -113,6 +119,46 @@ export function ApiKeysCard() {
             </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Only a hash is stored, so nobody can recover this value later, including us.</p>
+        </div>
+      )}
+
+      {/* Usage chart */}
+      {usage !== null && keys !== null && keys.length > 0 && (
+        <div className="mt-5 rounded-md border border-border p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              <Activity className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> API calls · last 14 days
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {usage.reduce((s, d) => s + d.count, 0)} total
+            </p>
+          </div>
+          <div className="mt-3 flex h-20 items-end gap-1.5" role="img" aria-label={`API usage for the last 14 days, ${usage.reduce((s, d) => s + d.count, 0)} calls in total`}>
+            {usage.map((d) => {
+              const max = Math.max(...usage.map((x) => x.count), 1);
+              const pct = d.count === 0 ? 0 : Math.max(8, Math.round((d.count / max) * 100));
+              return (
+                <div key={d.day} className="group relative flex h-full min-w-0 flex-1 flex-col justify-end" title={`${d.day}: ${d.count} ${d.count === 1 ? "call" : "calls"}`}>
+                  <span className={cn(
+                    "pointer-events-none absolute -top-1 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-sm bg-foreground px-1.5 py-0.5 text-[10px] font-bold text-background group-hover:block",
+                  )}>
+                    {d.count}
+                  </span>
+                  <div
+                    className={cn(
+                      "w-full rounded-t-sm transition-colors",
+                      d.count === 0 ? "bg-muted" : "bg-primary group-hover:bg-primary/80"
+                    )}
+                    style={{ height: `${d.count === 0 ? 4 : pct}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+            <span>{new Date(usage[0]?.day || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span>Today</span>
+          </div>
         </div>
       )}
 

@@ -61,6 +61,16 @@ export async function authenticateApiKey(req: Request): Promise<ApiKeyAuthResult
     })
     .catch(() => {});
 
+  // Per-day usage rollup for the usage chart (fire-and-forget, never blocks the request).
+  const day = new Date().toISOString().slice(0, 10);
+  void db.apiKeyUsage
+    .upsert({
+      where: { keyId_day: { keyId: key.id, day } },
+      update: { count: { increment: 1 } },
+      create: { keyId: key.id, day, count: 1 },
+    })
+    .catch(() => {});
+
   return {
     ok: true,
     status: 200,

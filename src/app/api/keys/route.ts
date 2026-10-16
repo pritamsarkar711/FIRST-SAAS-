@@ -32,7 +32,22 @@ export async function GET() {
       revokedAt: true, createdAt: true,
     },
   });
-  return NextResponse.json({ keys, maxActive: MAX_ACTIVE_KEYS });
+
+  // 14-day usage series across all of the user's keys (UTC days, gaps included).
+  const since = new Date(Date.now() - 13 * 86_400_000);
+  const usage = await db.apiKeyUsage.findMany({
+    where: { key: { userId: user.id }, day: { gte: since.toISOString().slice(0, 10) } },
+    select: { day: true, count: true },
+  });
+  const byDay = new Map<string, number>();
+  for (const row of usage) byDay.set(row.day, (byDay.get(row.day) || 0) + row.count);
+  const days: { day: string; count: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    days.push({ day: d, count: byDay.get(d) || 0 });
+  }
+
+  return NextResponse.json({ keys, maxActive: MAX_ACTIVE_KEYS, usage: days });
 }
 
 export async function POST(req: NextRequest) {

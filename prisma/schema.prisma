@@ -56,6 +56,7 @@ model Audit {
   verdict     String?
   report      String? // JSON report
   signals     String? // JSON crawl signals
+  deepScan    Boolean  @default(false) // deep crawl: more articles, verified nav pages, freshness
   error       String?
   creditsUsed Int        @default(0)
   shareToken  String?    @unique
@@ -106,7 +107,20 @@ model ApiKey {
   revokedAt    DateTime?
   createdAt    DateTime  @default(now())
 
+  usage ApiKeyUsage[]
+
   @@index([userId, createdAt])
+}
+
+model ApiKeyUsage {
+  id      String @id @default(cuid())
+  keyId   String
+  key     ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  day     String // YYYY-MM-DD (UTC)
+  count   Int    @default(0)
+
+  @@unique([keyId, day])
+  @@index([keyId, day])
 }
 
 model ActivityLog {

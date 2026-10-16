@@ -69,12 +69,14 @@ export const AI_DEFAULTS: AiSettings = {
 
 export interface CreditCosts {
   audit: { normal: number; standard: number; premium: number };
+  deepScan: number; // surcharge added to the audit mode cost when deep scan is on
   writer: { standard: number; premium: number };
   index: number;
   signupBonus: number;
 }
 export const COSTS_DEFAULTS: CreditCosts = {
   audit: { normal: 5, standard: 12, premium: 25 },
+  deepScan: 6,
   writer: { standard: 15, premium: 35 },
   index: 2,
   signupBonus: 10,

@@ -1,5 +1,5 @@
 import { ScoreRing, VerdictBadge, ScoreBar, type Status } from "@/components/shared/report-ui";
-import { CircleCheck, CircleMinus, CircleX } from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, ScanSearch } from "lucide-react";
 import type { AuditReport } from "@/lib/audit-runner";
 import { networkName } from "@/lib/audit-runner";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,18 @@ export interface ReportViewProps {
   mode: string;
   createdAt: string | Date;
   report: AuditReport;
-  signals?: { estimatedPages?: number; articles?: { length: number }[]; sitemap?: { exists: boolean; urlCount?: number }; homepage?: { platform?: string } } | null;
+  signals?: {
+    estimatedPages?: number;
+    articles?: { length: number }[];
+    sitemap?: { exists: boolean; urlCount?: number };
+    homepage?: { platform?: string };
+    deepScan?: boolean;
+    sitemapsTraversed?: number;
+    navPageChecks?: { path: string; url: string; statusCode: number; wordCount: number; hasContent: boolean }[];
+    categoryCheck?: { url: string; statusCode: number; wordCount: number; articleLinks: number } | null;
+    contentFreshness?: { newest: string | null; oldest: string | null; datedArticles: number; within365d: number; within90d: number } | null;
+    thinArticleRatio?: number | null;
+  } | null;
   children?: React.ReactNode;
   footerNote?: string | null;
 }
@@ -25,9 +36,14 @@ export function ReportView({ domain, target, mode, createdAt, report, signals, c
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{domain}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {networkName(target)} · {mode.charAt(0) + mode.slice(1).toLowerCase()} mode ·{" "}
-            {new Date(createdAt).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+            {networkName(target)} · {mode.charAt(0) + mode.slice(1).toLowerCase()} mode{" "}
+            {signals?.deepScan && (
+              <span className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                <ScanSearch className="h-3 w-3" aria-hidden="true" /> Deep scan
+              </span>
+            )}
+            {" · "}{new Date(createdAt).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
           </p>
         </div>
         {children}
@@ -61,6 +77,84 @@ export function ReportView({ domain, target, mode, createdAt, report, signals, c
           </div>
         </div>
       </div>
+
+      {/* Deep scan evidence */}
+      {signals?.deepScan && (
+        <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <ScanSearch className="h-5 w-5 text-primary" aria-hidden="true" />
+            <h2 className="font-bold text-foreground">Deep scan evidence</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">Verified by opening these pages directly, not by guessing from link text.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Policy pages opened</p>
+              {signals.navPageChecks?.length ? (
+                <ul className="mt-2 divide-y divide-border overflow-hidden rounded-md border border-border">
+                  {signals.navPageChecks.map((p) => (
+                    <li key={p.path} className="flex items-center gap-2.5 bg-card px-3 py-2.5">
+                      {p.hasContent ? <CircleCheck className="h-4 w-4 shrink-0 text-ok" aria-label="found with real content" /> : p.statusCode === 200 ? <CircleMinus className="h-4 w-4 shrink-0 text-warn" aria-label="reachable but thin" /> : <CircleX className="h-4 w-4 shrink-0 text-risk" aria-label="not reachable" />}
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold capitalize text-foreground">{p.path} page</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{p.statusCode === 200 ? `${p.wordCount.toLocaleString()} words` : `HTTP ${p.statusCode}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 rounded-md bg-warn-soft px-3 py-2.5 text-sm text-warn">None of the About, Contact, Privacy or Terms pages could be found in the site navigation.</p>
+              )}
+              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Content freshness</p>
+              {signals.contentFreshness ? (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    ["Newest post", signals.contentFreshness.newest || "Not dated"],
+                    ["Oldest sampled", signals.contentFreshness.oldest || "Not dated"],
+                    ["Updated in 90 days", `${signals.contentFreshness.within90d}/${signals.contentFreshness.datedArticles}`],
+                    ["Updated in a year", `${signals.contentFreshness.within365d}/${signals.contentFreshness.datedArticles}`],
+                  ].map(([k, v]) => (
+                    <div key={String(k)} className="rounded-md border border-border bg-secondary/50 px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{k}</p>
+                      <p className="mt-0.5 text-sm font-bold text-foreground">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 rounded-md bg-warn-soft px-3 py-2.5 text-sm text-warn">No publish dates were found in the sampled articles.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Category page probe</p>
+              {signals.categoryCheck ? (
+                <div className="mt-2 rounded-md border border-border px-3 py-2.5">
+                  <p className="truncate text-xs text-muted-foreground" title={signals.categoryCheck.url}>{signals.categoryCheck.url}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    <span className="font-semibold text-foreground">HTTP {signals.categoryCheck.statusCode}</span>
+                    <span className="text-muted-foreground">{signals.categoryCheck.wordCount.toLocaleString()} words on page</span>
+                    <span className="text-muted-foreground">{signals.categoryCheck.articleLinks} links found</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 rounded-md bg-secondary/60 px-3 py-2.5 text-sm text-muted-foreground">No category or topic link was found on the homepage to probe.</p>
+              )}
+              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Thin content</p>
+              {typeof signals.thinArticleRatio === "number" ? (
+                <div className="mt-2 rounded-md border border-border px-3 py-2.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Sampled articles under 600 words</span>
+                    <span className={cn("font-bold", signals.thinArticleRatio >= 0.34 ? "text-risk" : signals.thinArticleRatio > 0 ? "text-warn" : "text-ok")}>
+                      {Math.round(signals.thinArticleRatio * 100)}%
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">Not enough dated samples to measure.</p>
+              )}
+              {typeof signals.sitemapsTraversed === "number" && (
+                <p className="mt-4 text-xs text-muted-foreground">Sitemap files read end to end: {signals.sitemapsTraversed}.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sections */}
       <div className="grid gap-4 lg:grid-cols-2 print:block">

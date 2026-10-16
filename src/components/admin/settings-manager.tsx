@@ -22,7 +22,7 @@ interface SettingsShape {
   site: { name: string; tagline: string; supportEmail: string; usdBdt: number; usdBdtAuto: boolean; affiliateRate: number; minWithdrawUsd: number };
   ai: { openrouterKey: string; models: { normal: string; standard: string; premium: string }; writerModels: { standard: string; premium: string } };
   prompts: { audit: string; writer: string; affiliate: string };
-  costs: { audit: { normal: number; standard: number; premium: number }; writer: { standard: number; premium: number }; index: number; signupBonus: number };
+  costs: { audit: { normal: number; standard: number; premium: number }; deepScan?: number; writer: { standard: number; premium: number }; index: number; signupBonus: number };
   google: { clientId: string; clientSecret: string };
   smtp: { host: string; port: number; user: string; pass: string; from: string };
   monitor: { monitorLimitFree: number; digestEnabled: boolean; lastSentAt: string };
@@ -186,10 +186,12 @@ export function SettingsManager() {
             <Field label="Audit: Normal" type="number" value={String(data.costs.audit.normal)} onChange={(v) => upd("costs", { audit: { ...data.costs.audit, normal: Number(v) } })} />
             <Field label="Audit: Standard" type="number" value={String(data.costs.audit.standard)} onChange={(v) => upd("costs", { audit: { ...data.costs.audit, standard: Number(v) } })} />
             <Field label="Audit: Premium" type="number" value={String(data.costs.audit.premium)} onChange={(v) => upd("costs", { audit: { ...data.costs.audit, premium: Number(v) } })} />
+            <Field label="Audit: Deep scan surcharge" type="number" value={String(data.costs.deepScan ?? 6)} onChange={(v) => upd("costs", { deepScan: Math.max(0, Number(v)) })} />
             <Field label="Article: Standard" type="number" value={String(data.costs.writer.standard)} onChange={(v) => upd("costs", { writer: { ...data.costs.writer, standard: Number(v) } })} />
             <Field label="Article: Premium" type="number" value={String(data.costs.writer.premium)} onChange={(v) => upd("costs", { writer: { ...data.costs.writer, premium: Number(v) } })} />
             <Field label="IndexNow batch" type="number" value={String(data.costs.index)} onChange={(v) => upd("costs", { index: Number(v) })} />
             <Field label="Signup bonus credits" type="number" value={String(data.costs.signupBonus)} onChange={(v) => upd("costs", { signupBonus: Number(v) })} />
+            <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-3">Deep scan surcharge is added to the audit mode cost when the user enables the deep crawl: 10 sampled articles instead of 3, every sitemap in the index, real verification of About / Contact / Privacy / Terms, a category page probe, and content freshness measurement.</p>
           </div>
         )}
 
