@@ -10,7 +10,15 @@ const nextConfig: NextConfig = {
   // include every engine (needed when building on GitHub Actions Ubuntu and
   // running on Hostinger CloudLinux).
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/.prisma/**", "./node_modules/@prisma/client/**"],
+    "/**": [
+      "./node_modules/.prisma/**",
+      "./node_modules/@prisma/client/**",
+      // @react-pdf/pdfkit resolve fonts at runtime through package "#"-imports
+      // (pdfkit "#standard-fonts/*" -> js/data/*.afm) which file tracing cannot
+      // see - include both packages so PDF generation works in standalone mode.
+      "./node_modules/pdfkit/**",
+      "./node_modules/@react-pdf/**",
+    ],
   },
   reactStrictMode: false,
   poweredByHeader: false,

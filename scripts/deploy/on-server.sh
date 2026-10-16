@@ -35,12 +35,13 @@ fi
 # 2) Push Prisma schema to MySQL (server-side: MySQL is reachable from here)
 echo "-- prisma db push (MySQL) --"
 set -a; . ./.env; set +a
-if command -v bunx >/dev/null 2>&1; then
-  bunx --yes prisma@6.11.1 db push --schema prisma/schema.mysql.prisma --skip-generate \
+if command -v bun >/dev/null 2>&1; then
+  # bun has no separate bunx binary on this server - use "bun x"
+  bun x --yes prisma@6.11.1 db push --schema prisma/schema.mysql.prisma --skip-generate \
     && echo "DB PUSH: OK" \
     || echo "DB PUSH: FAILED (check DATABASE_URL / MySQL creds)"
 else
-  echo "DB PUSH: SKIPPED (bunx not found)"
+  echo "DB PUSH: SKIPPED (bun not found)"
 fi
 
 # 3) (Re)start the app server
@@ -50,9 +51,15 @@ sleep 1
 set -a; . ./.env; set +a
 export PORT NODE_ENV=production HOSTNAME=127.0.0.1
 setsid nohup "$RUNTIME" "$APP/server.js" > "$LOG" 2>&1 < /dev/null &
-sleep 8
+sleep 6
 echo "-- local health check:"
-curl -s -o /dev/null -w "  http://127.0.0.1:$PORT/ -> %{http_code}\n" --max-time 30 "http://127.0.0.1:$PORT/" || echo "  local check FAILED"
+OK=000
+for i in 1 2 3 4; do
+  OK=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "http://127.0.0.1:$PORT/" 2>/dev/null) || OK=000
+  echo "  try $i: http://127.0.0.1:$PORT/ -> $OK"
+  [ "$OK" = "200" ] && break
+  sleep 6
+done
 echo "-- app log tail:"
 tail -n 20 "$LOG" 2>/dev/null || true
 
