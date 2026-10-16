@@ -63,6 +63,13 @@ export function HeroAuditForm({ compact = false }: { compact?: boolean }) {
         </Button>
       </form>
       {error ? <p className="mt-2 text-sm font-medium text-risk" role="alert">{error}</p> : null}
+      <p className="mt-3 text-sm text-muted-foreground">
+        In a hurry?{" "}
+        <a href="/tools" className="font-semibold text-primary underline underline-offset-2">
+          Run a free instant site check
+        </a>{" "}
+        with six quick health checks, no signup needed.
+      </p>
     </div>
   );
 }

@@ -287,3 +287,44 @@ Stage Summary:
 - The platform gained a per-domain memory (trend pages + trend CSV), a public free tool that feeds the signup funnel, an onboarding path for new accounts, and production-ready SMTP verification.
 - Sandbox state: no schema changes this round (no db:push needed); test user unchanged (99 credits, 1 monitor, 3 domains on record); onboarding shows 1 pending step (2FA) for the test user.
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs public URL); sitemap-level content scanning depth (deep-scan mode sampling more articles); per-domain scheduled digest opt-in; expose the site-check tool on the home hero as a secondary CTA; consider API keys for programmatic audits.
+
+---
+Task ID: 9 (cron round 7)
+Agent: Z.ai cron review
+Task: QA assessment + Developer API (keys, /api/v1, docs page), hero secondary CTA, styling details
+
+Work Log (status assessment first):
+- INFRA INCIDENT at round start: dev server OOM-killed again between rounds (next-server 2.6GB RSS, kernel oom-kill). Restarted with the documented persistent-spawn procedure, this time with NODE_OPTIONS=--max-old-space-size=1536 to cap the heap and dev.log appended via fd. New spawn command: `bun -e "const fs=require('fs');const fd=fs.openSync('/home/z/my-project/dev.log','a');const p=Bun.spawn(['bun','run','dev'],{cwd:'/home/z/my-project',env:{...process.env,NODE_OPTIONS:'--max-old-space-size=1536'},stdout:fd,stderr:fd,stdin:'ignore'});p.unref()"`.
+- QA after restart: lint clean, all 17 public routes 200, dashboard routes 307 (auth redirect), browser QA on dashboard/audit/watchlist/domains/report surfaces: no defects. Platform stable -> feature work.
+
+Features added:
+- DEVELOPER API KEYS (programmatic access, top of last round's priority list):
+  - New ApiKey model (name, prefix, sha256 keyHash unique, lastUsedAt, requestCount, revokedAt). Raw key format `ak_` + 32 base64url chars, shown exactly once at creation.
+  - lib/api-keys.ts: createRawApiKey/hashApiKey/keyPrefixOf, authenticateApiKey (Bearer parse -> hash lookup -> revoked/suspended checks -> fire-and-forget usage bookkeeping), v1Json/v1Error with permissive CORS headers + OPTIONS preflight on all /api/v1 routes.
+  - /api/keys (session auth): GET list masked keys + maxActive 5; POST create (rate limited, cap 5 active) returns the raw secret once; POST revoke (soft, sets revokedAt).
+  - /api/v1/audits: POST starts one audit (same zod validation, SSRF assertPublicUrl, atomic credit deduction, runAudit as the app), returns 202 + poll path + hint; GET lists the 20 most recent audits. /api/v1/audits/[id]: GET returns status; when DONE includes the full report JSON (probability, verdict, sections, strengths, risks, roadmap), crawl signals and pdf_url. Rate limit 30 starts / 10 min / key.
+  - Settings page got a "Developer API" card (components/dashboard/api-keys-card.tsx): key list with status dot, prefix + call count + last used, revoke buttons, create form, one-time secret panel with copy button and honest warning, docs link, skeletons + empty state, 44px targets.
+  - PUBLIC DOCS PAGE /docs/api (site layout): quick start with copy-ready curl examples, endpoint cards, parameter table, error-code table (400/401/402/403/404/429), "good to know" (hashed keys, shared credits, same guards), CTAs to settings + pricing. Added to sitemap (0.5) and footer Product column ("Developer API").
+  - Activity log: API_KEY_CREATE / API_KEY_REVOKE (auth group), API_AUDIT_START (audits group, detail includes which key ran it); admin activity labels added.
+- HOME HERO SECONDARY CTA: under the hero form, "In a hurry? Run a free instant site check" links to /tools, feeding the free-tool funnel from the top of the page.
+
+Bugs found and fixed this round:
+- /api/keys 500 "Cannot read properties of undefined (reading 'findMany')": stale Prisma client in the long-running dev server after schema push (documented recurring pitfall). Fixed with bunx prisma generate + dev server restart. Note for future agents: ALWAYS restart the dev server after any db:push.
+
+Verified end-to-end (curl + browser):
+- Key lifecycle: create via API and via browser UI (one-time secret panel renders, prefix shown, copy button present), requestCount/lastUsedAt track (6 calls), revoke -> subsequent calls get 401 "This API key has been revoked", 5-key cap enforced server-side.
+- Guards: no auth -> 401 with helpful message; bogus key -> 401 "Invalid API key."; domain "localhost" -> 400.
+- Full API round-trip: POST waitbutwhy.com NORMAL -> 202 -> poll -> done, 85%, APPLY_NOW, 6 sections + strengths + risks + roadmap + crawl_signals in the response; credits deducted exactly once (99 -> 94 for a 5-credit NORMAL audit; polls do not deduct).
+- UI-created key works against the v1 API (6 audits visible through the list endpoint).
+- Docs page: desktop + 390px mobile (no horizontal overflow, code blocks scroll internally), light + dark verified.
+- Admin activity: API_KEY_CREATE/API_KEY_REVOKE/API_AUDIT_START rows present in the right tabs.
+- Final: lint clean, route sweep 200/307 as expected, no unexpected runtime errors in dev.log, browser closed.
+
+Styling details:
+- Docs page follows the 2016 flat system: no gradients, small radius, single emerald accent, POST/GET chips in primary/secondary, mono code blocks on bg-secondary with internal horizontal scroll on mobile.
+- API keys card matches the settings cards (icon header, muted explainer, dotted list borders, sr-only labels, aria-labels on revoke buttons).
+
+Stage Summary:
+- AdAudit now has a public developer API with hashed keys, per-key rate limits and usage counters, a marketing docs page, and a funnel link from the hero to the free tool.
+- Sandbox state: test user has 94 credits, one ACTIVE key "Zapier webhook" (ak_kGZ0MD86···) and one revoked "CI script"; the full secret for the active key was printed in this session only. Admin password unchanged. New spawn procedure keeps dev.log appended with a 1536MB heap cap.
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs a public URL); per-key credit budgets/spend caps; API usage page for users (charts over requestCount); deep-scan mode sampling more sitemap articles; consider trimming Turbopack workers to stop repeat OOM kills.

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useInitialFetch } from "@/lib/use-initial-fetch";
+import { ApiKeysCard } from "@/components/dashboard/api-keys-card";
 
 interface SecurityEvent { id: string; label: string; detail: string | null; ip: string | null; createdAt: string }
 
@@ -73,7 +74,7 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Profile, password and two factor authentication.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Profile, password, developer API and two factor authentication.</p>
       </div>
 
       {/* Profile */}
@@ -154,6 +155,8 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
           </div>
         )}
       </div>
+
+      <ApiKeysCard />
 
       <RecentActivity />
     </div>

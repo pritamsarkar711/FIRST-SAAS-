@@ -41,6 +41,7 @@ model User {
   messages       ContactMessage[]
   notifications  Notification[]
   watchItems     WatchItem[]
+  apiKeys        ApiKey[]
 }
 
 model Audit {
@@ -91,6 +92,21 @@ model WatchItem {
 
   @@unique([userId, domain, target])
   @@index([active, nextRunAt])
+}
+
+model ApiKey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  prefix       String // display form, e.g. ak_a83f1c · · · never the full secret
+  keyHash      String    @unique // sha256 hex of the full key; the raw key is shown once
+  lastUsedAt   DateTime?
+  requestCount Int       @default(0)
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model ActivityLog {
