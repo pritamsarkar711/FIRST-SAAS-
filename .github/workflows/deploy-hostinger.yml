@@ -145,13 +145,20 @@ jobs:
           URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
           if [ -n "$URL" ]; then
             CODE=000
-            for i in 1 2 3; do
-              CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 -L "$URL" || echo 000)
+            for i in 1 2 3 4 5; do
+              CODE=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 25 -L "$URL" || echo 000)
               echo "public URL check (try $i): $URL -> $CODE"
-              [ "$CODE" = "200" ] && break
-              sleep 5
+              if [ "$CODE" = "200" ]; then
+                if grep -qiE "Audit Form|auditform|Next.js" /tmp/body; then
+                  echo "APP CONTENT CONFIRMED: the public URL is serving the Audit Form app."
+                else
+                  echo "200 but content does not look like the app (proxy may point elsewhere). First 300 chars:"; head -c 300 /tmp/body
+                fi
+                break
+              fi
+              sleep 6
             done
             if [ "$CODE" != "200" ]; then
-              echo "## Public URL not 200 yet (last code: $CODE). The app itself may be fine - check the on-server health check above. If LiteSpeed blocks the .htaccess proxy, create the Node.js app in hPanel per DEPLOY.md." >> "$GITHUB_STEP_SUMMARY"
+              echo "## Public URL not 200 yet (last code: $CODE). Check the on-server health check above." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
