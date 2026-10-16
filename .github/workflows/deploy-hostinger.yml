@@ -214,7 +214,16 @@ jobs:
             prisma/schema.mysql.prisma "$SSH_USER@$SSH_HOST:auditform/app/prisma/"
           rsync -az -e "sshpass -e $SSHOPTS" \
             .env.production db-init.sql scripts/deploy/htaccess.node scripts/deploy/survey.sh \
+            scripts/deploy/index.php.bridge scripts/deploy/htaccess.php \
             "$SSH_USER@$SSH_HOST:auditform/app/"
+          # static assets: served directly by LiteSpeed from the docroot AND
+          # needed by the standalone app itself
+          rsync -az --delete -e "sshpass -e $SSHOPTS" \
+            .next/static/ "$SSH_USER@$SSH_HOST:auditform/app/.next/static/"
+          if [ -d public ]; then
+            rsync -az --delete -e "sshpass -e $SSHOPTS" \
+              public/ "$SSH_USER@$SSH_HOST:auditform/app/public/"
+          fi
 
       - name: Server-side setup, restart and health check
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')

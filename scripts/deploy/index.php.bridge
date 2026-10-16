@@ -1,0 +1,77 @@
+<?php
+/**
+ * Audit Form - HTTP bridge: LiteSpeed/PHP -> Next.js over a UNIX domain socket.
+ *
+ * Hostinger shared hosting refuses ALL tenant TCP connections (even loopback),
+ * so a classic .htaccess [P] reverse proxy to 127.0.0.1:3000 can never work.
+ * PHP is served natively by LiteSpeed though, and PHP-curl can speak HTTP over
+ * a UNIX domain socket (CURLOPT_UNIX_SOCKET_PATH) - which the Node app listens
+ * on (server.listen("/path/to.sock") = unix socket per Node semantics).
+ *
+ * Installed by scripts/deploy/on-server.sh (socket path injected below).
+ * Real files in the docroot (.next/static copies, public assets) are served
+ * directly by LiteSpeed via .htaccess; EVERYTHING else arrives here.
+ */
+
+$__SOCK = '__APP_SOCK__';
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$uri    = $_SERVER['REQUEST_URI'] ?? '/';
+
+// Build request headers (forward the original Host - NextAuth needs it)
+$reqHeaders = [];
+foreach ($_SERVER as $k => $v) {
+    if (strpos($k, 'HTTP_') !== 0) continue;
+    $name = str_replace('_', '-', strtolower(substr($k, 5)));
+    if (in_array($name, ['host', 'connection', 'content-length', 'accept-encoding', 'keep-alive', 'upgrade'])) continue;
+    $reqHeaders[] = $name . ': ' . $v;
+}
+$reqHeaders[] = 'host: ' . ($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+$reqHeaders[] = 'x-forwarded-for: ' . ($_SERVER['REMOTE_ADDR'] ?? '');
+$reqHeaders[] = 'x-forwarded-proto: ' . ($_SERVER['HTTPS'] ?? '' === 'on' ? 'https' : 'http');
+if (isset($_SERVER['CONTENT_TYPE'])) $reqHeaders[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];
+
+$body = file_get_contents('php://input');
+$hasBody = !in_array($method, ['GET', 'HEAD'], true) && $body !== false && $body !== '';
+
+$ch = curl_init('http://localhost' . $uri);
+curl_setopt_array($ch, [
+    CURLOPT_UNIX_SOCKET_PATH => $__SOCK,
+    CURLOPT_CUSTOMREQUEST    => $method,
+    CURLOPT_HTTPHEADER       => $reqHeaders,
+    CURLOPT_RETURNTRANSFER   => true,
+    CURLOPT_HEADER           => true,
+    CURLOPT_FOLLOWLOCATION   => false,
+    CURLOPT_TIMEOUT          => 150,
+    CURLOPT_CONNECTTIMEOUT   => 10,
+    CURLOPT_ENCODING         => '',           // identity - no compressed passthrough
+]);
+if ($method === 'HEAD') curl_setopt($ch, CURLOPT_NOBODY, true);
+if ($hasBody) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+
+$resp   = curl_exec($ch);
+$hsize  = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$cerr   = curl_errno($ch);
+curl_close($ch);
+
+if ($resp === false || $cerr !== 0 || $status === 0) {
+    http_response_code(502);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "The application is starting or unreachable (curl errno $cerr). Please retry in a moment.";
+    exit;
+}
+
+$hblock = (string)substr($resp, 0, $hsize);
+$bout   = (string)substr($resp, $hsize);
+$skip   = ['transfer-encoding', 'content-length', 'connection', 'keep-alive', 'content-encoding'];
+
+foreach (explode("\r\n", $hblock) as $h) {
+    if (!preg_match('/^([A-Za-z0-9\-]+):\s?(.*)$/', $h, $m)) continue;
+    $lower = strtolower($m[1]);
+    if (in_array($lower, $skip, true)) continue;
+    if ($lower === 'set-cookie') { header($m[1] . ': ' . $m[2], false); continue; }
+    header($m[1] . ': ' . $m[2], true);
+}
+http_response_code($status ?: 200);
+echo $bout;

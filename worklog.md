@@ -592,3 +592,32 @@ Stage Summary:
 - Admin panel login now offers password+2FA and (when configured) Google sign-in; 2FA flows confirmed present end to end.
 - All deployment secrets are staged in GitHub; the ONLY blockers remain on the user side: (a) fix GitHub billing OR make repo public to unblock the ready-to-run Actions deploy, (b) optionally the hPanel Node.js app path needs zero CI and is fully documented with their real values.
 - Next priorities: trigger survey+deploy the moment Actions unblocks; verify https://brown-goshawk-979924.hostingersite.com; user adds OpenRouter key + SMTP + Google OAuth client in /manage/settings; watchlist cron; remind user to rotate the GitHub token shared in chat.
+
+---
+Task ID: 17
+Agent: Z.ai main
+Task: User reported site still 403/503 - take over deployment completely, fix all issues
+
+Work Log:
+- Confirmed repo already PUBLIC (user made it public) -> Actions billing block GONE. Dispatched deploy run 19 (workflow_dispatch mode=deploy): build+rsync+htaccess all succeeded, but app crashed at boot and public URL returned 503 x5.
+- ROOT CAUSE CHAIN discovered over runs 20-23 (each iteration = commit+push+auto-deploy+logs):
+  1. Workflow's old pdfkit "patch" rewrote #standard-fonts refs to RELATIVE paths -> "Cannot find module ... from ''" (bun cannot resolve relative specifiers from anonymous/eval parents) -> unhandledRejection crashed the app (no guard) -> LiteSpeed proxy -> 503.
+  2. Replaced with BARE specifier patch + REAL PDF render probes (CJS+ESM x node+bun). Run 20 boot gate tightened: node module errors fatal, bun rejections informational (guard keeps server alive).
+  3. Run 21: DB init was failing with errno 121 (duplicate FK names from an earlier partial init). on-server.sh now DROPs all tables/views (FOREIGN_KEY_CHECKS=0) then applies db-init.sql -> clean 18-table schema, 0 errors, every deploy since.
+  4. Run 22: .mjs mapping bug - pdfkit.node.mjs loads fonts via createRequire (CJS) so fonts must map to .cjs (plain object); .mjs made bun return a module namespace -> "Invalid standard font data" thrown synchronously during boot -> server never bound. Fixed mapping (browser.mjs keeps .mjs).
+  5. Run 23: all probes pass; bun cold boot on the shared CPU takes 100-165s; health window raised to 20x7s; app reached "Ready" 7s AFTER the health loop gave up.
+  6. Added crash-restarting supervisor (~/auditform/run-app.sh, bash while-loop, setsid nohup) + src/instrumentation.ts (global unhandledRejection/uncaughtException guards) -> app can no longer die silently.
+- Survey runs (24, 26) exposed the REAL platform constraint:
+  * node is MISSING on the Hostinger shared server; only /usr/bin/bun 1.3.14 exists.
+  * App process ALIVE + "Ready in 88-146ms", supervisor stable, 0 restarts, /proc/net/tcp SHOWS a LISTEN socket 127.0.0.1:3000 owned by the user UID.
+  * BUT curl to 127.0.0.1:3000 FROM THE SERVER = Connection refused x3, and even a trivial `bun -e Bun.serve({port:3999})` = connection refused. LiteSpeed's .htaccess [P] proxy therefore CANNOT work on this host (its backend connect is refused the same way) -> permanent 503.
+  * Conclusion: Hostinger shared blocks tenant TCP loopback connections (their managed hPanel "Node.js App" feature is the officially supported path - it proxies via LS vhost config, not user .htaccess).
+- Survey v4 (run 30) dispatched to test escape hatches: bind 0.0.0.0 + connect via PUBLIC IP (iptables REJECT may only match 127.0.0.0/8 dest), and to discover managed node binaries (/opt/alt/...). Workflow survey step now receives PUBLIC_URL + PUBLIC_IP env.
+- 13 GitHub secrets verified in place (SSH*, DATABASE_URL, DB_HOST/USER/PASSWORD/NAME, NEXTAUTH_SECRET, NEXT_PUBLIC_SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD).
+- Dev sandbox: local dev server healthy (200) with the new instrumentation.ts; no regressions.
+
+Stage Summary:
+- The full deployment pipeline WORKS end-to-end (build -> probe -> rsync -> DB reset+init -> supervisor -> htaccess); the ONLY blocker is the host's TCP loopback connection block, which is a platform policy, not a bug in our stack.
+- App is fully prepared on the server (~/auditform/app: standalone bundle, node_modules incl. pdfkit fonts, .env with real DB creds, DB schema live with 18 tables).
+- Next: read survey v4 results. If public-IP bind works -> switch on-server.sh to HOSTNAME=0.0.0.0 + .htaccess [P] -> http://PUBLIC_IP:3000 and redeploy. If refused -> write HPANEL-NODE-APP-STEPS.md (zero-build path: hPanel Node.js app pointing at the already-built ~/auditform/app, startup file server.js, no npm install needed) and hand the user a precise click-by-click; our supervisor + .htaccess must be removed to avoid conflicts. Update DEPLOY.md accordingly.
+- User to-dos after go-live: rotate the GitHub token shared in chat; configure OpenRouter/SMTP/Google OAuth in /manage/settings (callback https://brown-goshawk-979924.hostingersite.com/api/auth/callback/google); 2FA available in Settings.

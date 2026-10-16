@@ -82,6 +82,30 @@ if [ -d "$HOME/auditform/app" ]; then
   echo "  managed node binaries (hPanel Node app runtime):"
   find /opt/alt /usr/local /opt/cpanel 2>/dev/null -maxdepth 4 -name "node" -type f 2>/dev/null | head -5 | sed 's/^/    /'
   ls -d "$HOME"/nodevenv* 2>/dev/null | head -3 | sed 's/^/    /'
+  echo "  UNIX-socket capability (the no-TCP path):"
+  T=$(mktemp -d)
+  (cd "$HOME/auditform/app" && timeout 8 bun -e "
+const http=require('http');
+const s=http.createServer((q,r)=>{r.end('unix-node-ok')});
+s.listen('$T/t1.sock','127.0.0.1');
+setTimeout(()=>process.exit(0),4000);" >/tmp/unix1.log 2>&1 & sleep 2; U1=$(curl -s --unix-socket "$T/t1.sock" --max-time 4 http://localhost/ 2>/dev/null || echo FAIL); echo "    bun node-style listen(path,host): $U1"; wait 2>/dev/null) | head -2
+  head -3 /tmp/unix1.log 2>/dev/null | sed 's/^/    /'
+  (cd "$HOME/auditform/app" && timeout 8 bun -e "
+const http=require('http');
+const s=http.createServer((q,r)=>{r.end('unix-obj-ok')});
+s.listen({path:'$T/t2.sock'});
+setTimeout(()=>process.exit(0),4000);" >/tmp/unix2.log 2>&1 & sleep 2; U2=$(curl -s --unix-socket "$T/t2.sock" --max-time 4 http://localhost/ 2>/dev/null || echo FAIL); echo "    bun listen({path}): $U2"; wait 2>/dev/null) | head -2
+  head -3 /tmp/unix2.log 2>/dev/null | sed 's/^/    /'
+  php -r '
+$c = curl_init("http://localhost/");
+curl_setopt($c, CURLOPT_UNIX_SOCKET_PATH, "'"$T"'/t1.sock");
+curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($c, CURLOPT_HEADER, true);
+curl_setopt($c, CURLOPT_TIMEOUT, 4);
+$r = curl_exec($c);
+echo $r === false ? ("    php unix curl: FAIL errno ".curl_errno($c)."\n") : "    php unix curl: OK\n";
+' 2>&1 | head -2
+  rm -rf "$T"
 else
   echo "  (no ~/auditform/app yet)"
 fi

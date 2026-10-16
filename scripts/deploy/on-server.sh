@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 # Runs ON the Hostinger server after the GitHub Actions runner has rsynced
-# the standalone build. Writes .env, rebuilds the MySQL schema deterministically,
-# starts the app under a crash-restarting supervisor and wires the domain
-# docroot through LiteSpeed (.htaccess reverse proxy).
+# the standalone build.
+#
+# ARCHITECTURE (after platform discovery):
+#   Hostinger shared refuses ALL tenant TCP connections (loopback included),
+#   so a .htaccess [P] proxy to 127.0.0.1:3000 can never work there.
+#   Instead the app listens on a UNIX DOMAIN SOCKET (Node treats
+#   server.listen("/path.sock") as a unix listener; PORT env passes straight
+#   through to it), and LiteSpeed - which serves PHP natively - forwards
+#   requests through docroot/index.php (PHP-curl over the unix socket).
+#   Static assets (.next/static, public/) are copied into the docroot and
+#   served directly by LiteSpeed for speed.
 #
 # NOTE: Hostinger shared servers ship BUN (/usr/bin/bun) but no node/npm/npx,
-# so the app runs with bun (node used automatically if bun is absent).
+# so the app runs with bun (node preferred automatically if present).
 set -u
 APP="$HOME/auditform/app"
 LOG="$HOME/auditform/app.log"
 SUP="$HOME/auditform/run-app.sh"
-PORT=3000
+SOCK="$HOME/auditform/app.sock"
 
-# Locate a runtime: prefer node (faster boot, stricter module semantics),
-# fall back to bun which Hostinger shared servers ship at /usr/bin/bun
+# Locate a runtime: prefer node (stricter module semantics), fall back to bun
 RUNTIME=""
 for c in node /usr/local/bin/node /usr/bin/node "$HOME/bin/node" bun; do
   if command -v "$c" >/dev/null 2>&1; then RUNTIME="$(command -v "$c")"; break; fi
@@ -21,7 +28,7 @@ done
 [ -n "$RUNTIME" ] || { echo "FATAL: no bun or node runtime found on server"; exit 1; }
 case "$RUNTIME" in
   *bun) NODE_FLAGS="" ;;
-  *)    NODE_FLAGS="--unhandled-rejections=warn" ;;  # belt & braces: never crash on a stray rejection
+  *)    NODE_FLAGS="--unhandled-rejections=warn" ;;
 esac
 echo "-- runtime: $RUNTIME ($("$RUNTIME" --version 2>&1 | head -1)) flags:[$NODE_FLAGS]"
 
@@ -29,7 +36,7 @@ echo "=== ON-SERVER DEPLOY $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 mkdir -p "$APP"
 cd "$APP" || { echo "FATAL: cannot cd $APP"; exit 1; }
 echo "-- app dir contents:"
-ls -la | head -12
+ls -la | head -10
 
 # 1) Environment file (uploaded by CI as .env.production)
 if [ -f .env.production ]; then
@@ -39,10 +46,8 @@ if [ -f .env.production ]; then
 fi
 [ -f .env ] || { echo "FATAL: .env missing"; exit 1; }
 
-# 2) Rebuild the database schema DETERMINISTICALLY.
-#    A previous partial init can leave foreign-key constraints behind; re-running
-#    CREATE TABLE then fails with errno 121 (duplicate FK name). Dropping every
-#    table/view first makes db-init.sql a clean from-empty apply every time.
+# 2) Rebuild the database schema DETERMINISTICALLY (drop-all then clean init;
+#    re-running CREATE TABLE over a partial prior init fails with errno 121).
 echo "-- database schema (MySQL): drop-all then clean init --"
 set -a; . ./.env; set +a
 if command -v mysql >/dev/null 2>&1 && [ -f db-init.sql ] && [ -n "${DB_NAME:-}" ] && [ -n "${DB_USER:-}" ]; then
@@ -51,52 +56,48 @@ if command -v mysql >/dev/null 2>&1 && [ -f db-init.sql ] && [ -n "${DB_NAME:-}"
   if [ -n "$OBJECTS" ]; then
     M -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS $OBJECTS; SET FOREIGN_KEY_CHECKS=1;" >/dev/null 2>&1 \
       && echo "DB RESET: dropped pre-existing objects" \
-      || echo "DB RESET WARN: drop failed (continuing; init SQL uses IF NOT EXISTS where possible)"
+      || echo "DB RESET WARN: drop failed (continuing)"
   else
     echo "DB RESET: database already empty"
   fi
   M --force < db-init.sql > /tmp/dbinit.log 2>&1
-  CREATED=$(grep -c "Duplicate key name\|already exists" /tmp/dbinit.log 2>/dev/null || true)
   REAL_ERRORS=$(grep -iE "error" /tmp/dbinit.log 2>/dev/null | grep -vicE "already exists|duplicate key name" || true)
   TABLE_COUNT=$(M -N -e "SHOW TABLES;" 2>/dev/null | wc -l)
-  echo "DB INIT: applied (skipped-duplicates: ${CREATED:-0}, real errors: ${REAL_ERRORS:-0}, tables now: ${TABLE_COUNT:-0})"
+  echo "DB INIT: applied (real errors: ${REAL_ERRORS:-0}, tables now: ${TABLE_COUNT:-0})"
   [ "${REAL_ERRORS:-0}" != "0" ] && grep -iE "error" /tmp/dbinit.log | grep -viE "already exists|duplicate key name" | head -4
 else
   echo "DB INIT: SKIPPED (mysql client, db-init.sql or DB creds missing)"
 fi
 
-# 2.5) Make pdfkit standard-font resolution ABSOLUTE on the server.
-#      Bun cannot resolve bare (or relative) specifiers when the calling module
-#      has no real filename (parent ''), which produced:
-#      "Cannot find module 'pdfkit/js/standard-fonts/Helvetica.mjs' from ''".
-#      Absolute paths resolve from EVERY context. The runner already patched
-#      '#standard-fonts/X' to the bare form; here we go all the way.
+# 2.5) Make pdfkit standard-font resolution ABSOLUTE on the server (bun cannot
+#      resolve bare/relative specifiers from anonymous module parents).
 PDFKIT_JS="$APP/node_modules/pdfkit/js"
 if [ -d "$PDFKIT_JS/standard-fonts" ]; then
   for f in "$PDFKIT_JS/pdfkit.js" "$PDFKIT_JS/pdfkit.node.mjs" "$PDFKIT_JS/pdfkit.browser.mjs"; do
     [ -f "$f" ] && sed -i "s|'pdfkit/js/standard-fonts/|'$PDFKIT_JS/standard-fonts/|g; s|\"pdfkit/js/standard-fonts/|\"$PDFKIT_JS/standard-fonts/|g" "$f"
   done
-  # In case a bundler inlined copies of these requires into server chunks:
   grep -rl "pdfkit/js/standard-fonts/" "$APP/.next/server" 2>/dev/null | while read -r f; do
     sed -i "s|'pdfkit/js/standard-fonts/|'$PDFKIT_JS/standard-fonts/|g" "$f"
   done
-  echo "-- pdfkit fonts: absolute-path resolution installed ($PDFKIT_JS)"
+  echo "-- pdfkit fonts: absolute-path resolution installed"
 else
   echo "-- pdfkit fonts: standard-fonts dir missing in standalone (unexpected)"
 fi
 
-# 3) Install the crash-restarting supervisor, then (re)start the app under it
+# 3) Crash-restarting supervisor. The app listens on the UNIX socket; a stale
+#    socket file must be removed before every start (EADDRINUSE otherwise).
 echo "-- installing supervisor: $SUP --"
 cat > "$SUP" <<'SUPERVISOR_EOF'
 #!/usr/bin/env bash
-# Keeps the Next.js standalone app alive. If the process dies for ANY reason
-# it is restarted after 3 seconds, so LiteSpeed never proxies to a dead port.
+# Keeps the Next.js standalone app alive; restarts 3s after any exit.
 APP="$HOME/auditform/app"
 LOG="$HOME/auditform/app.log"
+SOCK="$HOME/auditform/app.sock"
 RUNTIME_BIN="$1"; shift
 NODE_FLAGS="$*"
 cd "$APP" || exit 1
 while true; do
+  rm -f "$SOCK"
   # shellcheck disable=SC2086
   "$RUNTIME_BIN" $NODE_FLAGS "$APP/server.js" >> "$LOG" 2>&1
   echo "[supervisor] app exited (code=$?) at $(date -u '+%Y-%m-%dT%H:%M:%SZ') - restarting in 3s" >> "$LOG"
@@ -105,42 +106,60 @@ done
 SUPERVISOR_EOF
 chmod +x "$SUP"
 
-echo "-- restarting app on 127.0.0.1:$PORT --"
+echo "-- restarting app (unix socket: $SOCK) --"
 pkill -f "auditform/run-app.sh" 2>/dev/null || true
 pkill -f "auditform/app/server.js" 2>/dev/null || true
 sleep 1
 : > "$LOG"
 set -a; . ./.env; set +a
-export PORT NODE_ENV=production HOSTNAME=127.0.0.1
+export PORT="$SOCK" NODE_ENV=production
+unset HOSTNAME 2>/dev/null || true
 setsid nohup bash "$SUP" "$RUNTIME" "$NODE_FLAGS" > /dev/null 2>&1 < /dev/null &
 
-# 4) Health check - first boot on shared CPU can take ~100s under bun; wait up to ~140s
-echo "-- local health check:"
+# 4) Health check over the unix socket (bun cold boot can take ~170s)
+echo "-- local health check (unix socket):"
 OK=000
-for i in $(seq 1 20); do
-  OK=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "http://127.0.0.1:$PORT/" 2>/dev/null) || OK=000
-  echo "  try $i: http://127.0.0.1:$PORT/ -> $OK"
-  [ "$OK" != "000" ] && [ "$OK" != "502" ] && break
+for i in $(seq 1 22); do
+  if [ -S "$SOCK" ]; then
+    OK=$(curl -s --unix-socket "$SOCK" -o /dev/null -w "%{http_code}" --max-time 30 "http://localhost/" 2>/dev/null) || OK=000
+  else
+    OK=000
+  fi
+  echo "  try $i: $SOCK -> $OK"
+  [ "$OK" != "000" ] && break
   sleep 7
 done
-sleep 3
-OK2=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "http://127.0.0.1:$PORT/" 2>/dev/null) || OK2=000
+sleep 2
+OK2=$(curl -s --unix-socket "$SOCK" -o /dev/null -w "%{http_code}" --max-time 30 "http://localhost/" 2>/dev/null) || OK2=000
 echo "  confirm after settle: -> $OK2"
-echo "-- processes:"
-pgrep -af "run-app.sh|auditform/app/server.js" | head -4 || echo "  (none - SUPERVISOR NOT RUNNING)"
 echo "-- app log tail:"
-tail -n 25 "$LOG" 2>/dev/null || true
+tail -n 22 "$LOG" 2>/dev/null || true
 
-# 5) Wire the domain: LiteSpeed reverse proxy via .htaccess in the docroot
+# 5) Wire the domain: static assets + PHP bridge in the docroot
 DOCROOT=$(ls -d "$HOME"/domains/*/public_html 2>/dev/null | head -1)
 echo "-- docroot detected: ${DOCROOT:-NONE}"
 if [ -n "${DOCROOT:-}" ] && [ -d "$DOCROOT" ]; then
-  if [ -f "$DOCROOT/.htaccess" ]; then
-    cp "$DOCROOT/.htaccess" "$DOCROOT/.htaccess.auditform-backup-$(date +%s)"
-    echo "-- backed up existing .htaccess"
+  # 5a) static assets served directly by LiteSpeed
+  if [ -d "$APP/.next/static" ]; then
+    mkdir -p "$DOCROOT/_next"
+    (rsync -a --delete "$APP/.next/static/" "$DOCROOT/_next/static/" 2>/dev/null || cp -r "$APP/.next/static" "$DOCROOT/_next/") \
+      && echo "-- .next/static copied into docroot"
   fi
-  cp "$APP/htaccess.node" "$DOCROOT/.htaccess"
-  echo "-- .htaccess proxy installed in $DOCROOT"
+  if [ -d "$APP/public" ]; then
+    cp -r "$APP/public/." "$DOCROOT/" 2>/dev/null && echo "-- public assets copied into docroot"
+  fi
+  # 5b) PHP bridge (unix-socket HTTP proxy)
+  if [ -f "$APP/index.php.bridge" ]; then
+    sed "s|__APP_SOCK__|$SOCK|g" "$APP/index.php.bridge" > "$DOCROOT/index.php"
+    echo "-- index.php bridge installed in $DOCROOT"
+  else
+    echo "-- WARN: index.php.bridge missing from app bundle"
+  fi
+  # 5c) .htaccess: real files direct, everything else -> index.php
+  if [ -f "$APP/htaccess.php" ]; then
+    cp "$APP/htaccess.php" "$DOCROOT/.htaccess"
+    echo "-- .htaccess (php bridge routing) installed in $DOCROOT"
+  fi
 else
   echo "-- no ~/domains/*/public_html found; domain wiring must be done in hPanel"
 fi
