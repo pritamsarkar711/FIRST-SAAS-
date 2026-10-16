@@ -94,16 +94,33 @@ jobs:
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
         run: npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.mysql.prisma --script > db-init.sql && wc -l db-init.sql
 
-      - name: Patch pdfkit font aliases to relative requires
+      - name: Patch pdfkit font aliases to bare specifiers + verify a real PDF renders
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
         run: |
+          # pdfkit resolves standard fonts via package.json "imports" (#standard-fonts/*).
+          # Bundled/eval contexts cannot resolve "#" specifiers, and relative paths fail
+          # when the module has no real filename (parent ''). A BARE specifier
+          # (pdfkit/js/standard-fonts/X.cjs) resolves via node_modules lookup in every
+          # context, and the standalone ships all pdfkit files (outputFileTracingIncludes).
           cd .next/standalone/node_modules/pdfkit/js
           for f in pdfkit.js pdfkit.node.mjs pdfkit.browser.mjs; do
             if [ -f "$f" ]; then
-              sed -i "s|'#standard-fonts/\\([A-Za-z]*\\)'|'./standard-fonts/\\1.cjs'|g" "$f"
+              ext="${f##*.}"
+              case "$f" in
+                *.mjs) target="pdfkit/js/standard-fonts/\\1.mjs" ;;
+                *)     target="pdfkit/js/standard-fonts/\\1.cjs" ;;
+              esac
+              sed -i "s|['\"]#standard-fonts/\\([A-Za-z]*\\)['\"]|'${target}'|g" "$f"
               echo "patched $f (remaining #standard-fonts refs: $(grep -c '#standard-fonts' "$f" || true))"
             fi
           done
+          cd ../../../../..
+          # REAL rendering probe: forces the standard-font resolution path in both runtimes.
+          export DATABASE_URL="mysql://placeholder:placeholder@127.0.0.1:3306/placeholder"
+          node -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit render probe (node): OK')" || { echo '## pdfkit node render probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun -e "const P=require('pdfkit');const d=new P({size:'A4'});d.text('smoke');d.end();console.log('pdfkit render probe (bun): OK')" || { echo '## pdfkit bun render probe FAILED' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
 
       - name: Boot smoke test (standalone must boot before shipping)
         if: steps.pre.outputs.status == 'ready' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'survey')
@@ -190,7 +207,7 @@ jobs:
           URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
           if [ -n "$URL" ]; then
             CODE=000
-            for i in 1 2 3 4 5; do
+            for i in 1 2 3 4 5 6 7 8; do
               CODE=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 25 -L "$URL" || echo 000)
               echo "public URL check (try $i): $URL -> $CODE"
               if [ "$CODE" = "200" ]; then
