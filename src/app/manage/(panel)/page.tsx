@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, SearchCheck, Receipt, Coins, ArrowRight, CircleCheck, CircleX, Clock, Radar, PauseCircle, AlarmClock } from "lucide-react";
+import { Users, SearchCheck, Receipt, Coins, ArrowRight, CircleCheck, CircleX, Clock, Radar, PauseCircle, AlarmClock, ScanSearch } from "lucide-react";
 import { db } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const since7d = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const now = new Date();
-  const [users, audits7d, auditsTotal, revenueAgg, pendingPayments, recentUsers, recentAudits, activeMonitors, dueMonitors, pausedMonitors, watchFailures7d, attentionItems] = await Promise.all([
+  const [users, audits7d, auditsTotal, revenueAgg, pendingPayments, recentUsers, recentAudits, activeMonitors, dueMonitors, pausedMonitors, watchFailures7d, deepMonitors, attentionItems] = await Promise.all([
     db.user.count(),
     db.audit.count({ where: { createdAt: { gte: since7d } } }),
     db.audit.count(),
@@ -21,6 +21,7 @@ export default async function AdminDashboard() {
     db.watchItem.count({ where: { active: true, nextRunAt: { lte: now } } }),
     db.watchItem.count({ where: { active: false, pausedReason: { not: null } } }),
     db.audit.count({ where: { watchItemId: { not: null }, status: "FAILED", createdAt: { gte: since7d } } }),
+    db.watchItem.count({ where: { deepScan: true } }),
     db.watchItem.findMany({
       where: { OR: [{ active: true, nextRunAt: { lte: now } }, { active: false, pausedReason: { not: null } }] },
       orderBy: { updatedAt: "desc" },
@@ -60,11 +61,15 @@ export default async function AdminDashboard() {
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-bold text-foreground"><Radar className="h-4.5 w-4.5 text-primary" /> Site monitoring health</h2>
-          <Link href="/manage/activity?tab=monitoring" className="text-sm font-semibold text-primary hover:underline">Monitoring log</Link>
+          <div className="flex items-center gap-3">
+            <Link href="/manage/monitors" className="text-sm font-semibold text-primary hover:underline">All monitors</Link>
+            <Link href="/manage/activity?tab=monitoring" className="text-sm font-semibold text-primary hover:underline">Monitoring log</Link>
+          </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
             { label: "Active monitors", value: activeMonitors, cls: "", icon: Radar },
+            { label: "Deep scan", value: deepMonitors, cls: "", icon: ScanSearch },
             { label: "Due now", value: dueMonitors, cls: dueMonitors > 0 ? "text-warn" : "", icon: AlarmClock },
             { label: "Auto-paused", value: pausedMonitors, cls: pausedMonitors > 0 ? "text-risk" : "", icon: PauseCircle },
             { label: "Failed checks (7d)", value: watchFailures7d, cls: watchFailures7d > 0 ? "text-risk" : "", icon: CircleX },

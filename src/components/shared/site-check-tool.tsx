@@ -66,7 +66,7 @@ export function SiteCheckTool() {
           <span className="rounded-sm bg-accent px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">Free, no signup</span>
         </div>
         <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-          Seven checks reviewers and crawlers run on any site, done in seconds: HTTPS, meta tags, mobile viewport, AdSense tag, ads.txt, robots and sitemap, and your About, Contact and Privacy pages opened for real.
+          Eight checks reviewers and crawlers run on any site, done in seconds: HTTPS, meta tags, mobile viewport, AdSense tag, ads.txt, robots and sitemap, and your About, Contact, Privacy and Terms pages opened for real.
         </p>
       </div>
 
@@ -140,7 +140,7 @@ export function SiteCheckTool() {
               })}
             </ul>
             <p className="mt-3 text-xs text-muted-foreground">
-              This free check looks at seven surface signals, including opening your About, Contact and Privacy pages for real. The full audit crawls your sitemap, samples articles and reviews 40+ policy points against the network you are targeting.
+              This free check looks at eight surface signals, including opening your About, Contact, Privacy and Terms pages for real. The full audit crawls your sitemap, samples articles and reviews 40+ policy points against the network you are targeting.
             </p>
           </div>
         )}

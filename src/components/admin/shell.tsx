@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, Users, SearchCheck, Receipt, Package, CreditCard, HandCoins,
-  MailCheck, Newspaper, Settings, Menu, X, LogOut, Fingerprint,
+  MailCheck, Newspaper, Settings, Menu, X, LogOut, Fingerprint, Radar,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/shared/notification-bell";
@@ -17,6 +17,7 @@ const NAV = [
   { href: "/manage", label: "Dashboard", icon: LayoutDashboard },
   { href: "/manage/users", label: "Users", icon: Users },
   { href: "/manage/audits", label: "Audits", icon: SearchCheck },
+  { href: "/manage/monitors", label: "Monitors", icon: Radar },
   { href: "/manage/payments", label: "Payments", icon: Receipt },
   { href: "/manage/plans", label: "Plans", icon: Package },
   { href: "/manage/gateways", label: "Gateways", icon: CreditCard },

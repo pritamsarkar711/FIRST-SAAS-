@@ -411,3 +411,58 @@ Stage Summary:
 - Monitoring and the deep upgrade are now one story: users can put a domain on a schedule once and every automatic check gets the full evidence pass. The free tool now demonstrates the same "we open your policy pages for real" differentiator before signup.
 - Sandbox state: schema changed this round (WatchItem.deepScan) and was pushed. Test user: 58 credits, 1 active monitor (waitbutwhy.com, Standard + Deep, every 7 days, 95% last score, 2 checks run). Admin password unchanged. No new settings keys (deepScan cost reused from last round).
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks (needs a public URL); per-key spend caps + per-key usage breakdown chart; admin monitor list showing which monitors run deep; site-check could also verify Terms page (currently About/Contact/Privacy); digest email could include deep-scan flags; consider raising container memory or trimming Turbopack workers to avoid repeat OOM kills.
+
+---
+Task ID: 12 (cron round 10)
+Agent: Z.ai cron review
+Task: QA assessment + per-key API spend caps, per-key usage charts, admin Monitors page, 8th free site-check, digest deep flags, styling details
+
+Work Log (status assessment first):
+- QA at round start: lint clean, all 17 public routes 200, dashboard/manage routes 307 (auth redirect), dev.log clean, browser QA (desktop 1366 + mobile 390, light + dark) on home/dashboard/audit/watchlist/settings: no defects, no hydration issues. One false alarm investigated: a "clipped" credits pill in the sidebar bottom turned out to be the Next.js dev indicator overlay, not a site defect. Platform stable -> feature work per mandate, continuing round 9's priority list.
+
+Features added:
+- PER-KEY DAILY SPEND CAPS (protects the credit balance from a leaked or runaway script):
+  - Schema: ApiKey.dailyCap Int? (null = unlimited). db:push + prisma generate + dev server restarted.
+  - Enforcement in authenticateApiKey: reads today's ApiKeyUsage row synchronously and returns 429 with a plain-language message ("Daily limit reached for this key (N requests per day). The counter resets at midnight UTC...") before the request proceeds; the message propagates through both v1 endpoints as a JSON error.
+  - POST /api/keys: create accepts optional dailyCap (1..10000); new action setCap updates or removes the cap (logged as API_KEY_UPDATE with a human-readable detail). GET /api/keys returns dailyCap per key.
+  - UI (api-keys-card): create form gained a "Daily cap (optional)" field; each key row gained a Cap button opening an inline editor with a number input plus 25/50/100/250/500 preset buttons, Save/Cancel, and honest success/error notices; rows show "cap N/day" or "no cap" in the meta line and a "CAP REACHED" badge (warn tint) when today's count equals the cap; the status dot turns warn in that state.
+  - VERIFIED end-to-end: created "Cap QA key" with cap 2; v1 calls -> 202, 202, then exactly 429 with the reset message; raised cap to 5 in the UI and the same key accepted requests again (202); credit math audited (owner 9,984 -> 9,969 across three 5-credit NORMAL audits).
+  - Docs: /docs/api 429 row and "Good to know" list document caps and the midnight UTC reset.
+- PER-KEY USAGE BREAKDOWN (finishes last round's analytics):
+  - GET /api/keys now also returns perKey: { keyId: 14-day zero-filled series }.
+  - The usage chart card gained a flat tab selector ("All keys" / one tab per key, aria tablist, primary-tinted active state) and the header shows "N total · N today" for the selected series.
+- ADMIN MONITORS PAGE (/manage/monitors) + nav:
+  - GET /api/admin/monitors returns every WatchItem with owner email/status, target, mode, deepScan, cadence, runs, lastScore, last/next run, and overdueMinutes (active + nextRunAt past).
+  - MonitorsManager: filter tabs All/Active/Deep scan/Overdue with live counts, table (Domain, Owner + suspended chip, Depth with network·mode + "Deep" chip, cadence, score chip with ok/warn/risk tint, runs, next check with "overdue 2h"-style labels, state Active/Paused with pausedReason tooltip), row hover transition, min-w table with horizontal scroll on mobile.
+  - Admin dashboard "Site monitoring health" card: new "Deep scan" tile (5-tile grid) + "All monitors" link beside "Monitoring log".
+- 8TH FREE SITE-CHECK + TERMS VERIFICATION (lead magnet now "eight quick health checks"):
+  - New check "No mixed content on the homepage": counts http:// src references on img/script/iframe/source/video/audio in the already-fetched homepage HTML (ok when zero, warn with exact count; honest warn when the homepage itself is not on HTTPS).
+  - Policy check now also targets /terms(-of-use|-service), fetches up to 4 pages, and reports missing ones by name ("Not linked from the homepage: about, terms") alongside the thin-page callouts; ok requires all found pages good AND none missing.
+  - Copy updated everywhere: tools card intro, footer explainer, hero CTA -> "eight".
+  - Caught and fixed a self-made inconsistency mid-round: extending the policy check alone still totaled 7 while the copy said eight - resolved by adding the genuine mixed-content check instead of shipping dishonest copy.
+  - VERIFIED against waitbutwhy.com via API and the /tools UI: "5 of 8 checks passed", mixed-content ok, policy warn with the missing about/terms callout.
+- DIGEST EMAIL DEEP FLAGS: weekly monitoring digest rows now append "· deep scan" (emerald bold in HTML, plain in text) for monitors with deepScan on; unit-rendered both formats to verify flag on/off per row.
+
+Bugs found and fixed this round:
+- api-keys-card crashed with "Cannot read properties of null (reading 'length')" on first render: the new series expression could be null before data loaded. Fixed with `usage || []` fallbacks.
+- Mixed-content regex had a stray space before the closing quote (would never match) - caught in self-review before testing.
+- STALE TAILWIND/TURBOPACK SCAN CACHE (new sandbox lesson): after editing classNames in a server component (manage dashboard), new utilities (lg:grid-cols-5) reached the DOM but their CSS was never emitted - persisting across dev server restarts. Fix: rm -rf .next + restart. Note for future agents: if a brand-new utility class renders unstyled after a restart, clear .next before suspecting the code.
+
+Styling details:
+- Chart tab selector: h-7 flat bordered tabs, primary/10 fill when active, truncate + title on long names, aria tablist semantics.
+- Cap editor: nested secondary-tinted panel, preset chips as 36px bordered buttons, primary Save + ghost Cancel.
+- "CAP REACHED" chip reuses the badge language of "Revoked" (soft tint + uppercase 11px).
+- Admin monitors table: score chips ok/warn/risk, "Deep" chip with ScanSearch icon, overdue in warn, suspended chip next to owner email, hover:bg-secondary/40 rows.
+- Monitoring health tiles: 5-across on lg, ScanSearch icon for the deep tile; theme-aware in dark and light.
+
+Verified this round (desktop 1366 + mobile 390, light + dark):
+- Cap flow end-to-end (202/202/429, cap edit re-opens the faucet, credits move correctly), CAP REACHED badge, per-key chart tabs, create-with-cap field.
+- /manage/monitors filters (Overdue 0 -> empty state, Deep -> the waitbutwhy row), admin dashboard deep tile.
+- Site-check 8/8 surfaces via curl and /tools UI; digest text+HTML flags; docs updated.
+- Final: lint clean, all public routes 200, auth redirects 307, dev.log clean, .next cache rebuilt.
+
+Stage Summary:
+- The developer API is now safe to hand to third parties: each key can be capped per day, watched per key in the usage chart, and killed instantly - caps convert a leaked key from "account drained" to "rate limited".
+- Admins get full fleet visibility over scheduled monitoring (who runs what, how deep, how overdue), and the free tool now runs eight honest checks including mixed content and Terms verification.
+- Sandbox state: schema changed this round (ApiKey.dailyCap) and was pushed. Admin: 9,969 credits (QA audits charged as designed). Test user: 58 credits, 1 active deep monitor. Active keys: Zapier webhook (no cap), Cap QA key (admin-owned, cap 5, 3 calls today). No new settings keys.
+- Next priorities: Stripe/PayPal/SSLCommerz webhooks (blocked on a public URL); per-key usage page with export; monitor-level spend caps (max credits/day per user); sample-report showcase of the new mixed-content check; watchlist "Check now" could honor per-key caps analogy with a per-run credit preview; consider a "cap reached" notification so owners learn why a script stopped.

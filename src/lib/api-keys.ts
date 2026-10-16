@@ -53,6 +53,24 @@ export async function authenticateApiKey(req: Request): Promise<ApiKeyAuthResult
   if (key.revokedAt) return { ok: false, status: 401, error: "This API key has been revoked. Create a new one in Settings." };
   if (key.user.status === "SUSPENDED") return { ok: false, status: 403, error: "The account that owns this key is suspended." };
 
+  // Per-day usage rollup for the usage chart and spend caps. Read first so the
+  // daily cap can be enforced before the request proceeds.
+  const day = new Date().toISOString().slice(0, 10);
+  const todayUsage = await db.apiKeyUsage
+    .findUnique({ where: { keyId_day: { keyId: key.id, day } }, select: { count: true } })
+    .catch(() => null);
+
+  if (key.dailyCap !== null && todayUsage && todayUsage.count >= key.dailyCap) {
+    return {
+      ok: false,
+      status: 429,
+      error: `Daily limit reached for this key (${key.dailyCap} requests per day). The counter resets at midnight UTC. Raise the cap in Settings or wait for the reset.`,
+      userId: key.user.id,
+      keyId: key.id,
+      keyName: key.name,
+    };
+  }
+
   // Usage bookkeeping is fire-and-forget; it must never slow the request down.
   void db.apiKey
     .update({
@@ -61,8 +79,6 @@ export async function authenticateApiKey(req: Request): Promise<ApiKeyAuthResult
     })
     .catch(() => {});
 
-  // Per-day usage rollup for the usage chart (fire-and-forget, never blocks the request).
-  const day = new Date().toISOString().slice(0, 10);
   void db.apiKeyUsage
     .upsert({
       where: { keyId_day: { keyId: key.id, day } },

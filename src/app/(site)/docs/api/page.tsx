@@ -147,7 +147,7 @@ export default function ApiDocsPage() {
               <tr><Td><code className="font-mono text-xs text-foreground">402</code></Td><Td>Not enough credits. Top up from the billing page.</Td></tr>
               <tr><Td><code className="font-mono text-xs text-foreground">403</code></Td><Td>The account that owns the key is suspended.</Td></tr>
               <tr><Td><code className="font-mono text-xs text-foreground">404</code></Td><Td>Audit id not found, or it belongs to another account.</Td></tr>
-              <tr><Td><code className="font-mono text-xs text-foreground">429</code></Td><Td>Rate limit exceeded: 30 audit starts per 10 minutes per key.</Td></tr>
+              <tr><Td><code className="font-mono text-xs text-foreground">429</code></Td><Td>Rate limit exceeded: 30 audit starts per 10 minutes per key, or the key's own daily call cap was reached (the error says which). Cap counters reset at midnight UTC.</Td></tr>
             </tbody>
           </table>
         </div>
@@ -164,6 +164,10 @@ export default function ApiDocsPage() {
           <li className="flex gap-2.5">
             <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span><strong className="text-foreground">Credits are shared.</strong> API calls spend the same balance as the dashboard, at the same per-mode rates shown before you run an audit.</span>
+          </li>
+          <li className="flex gap-2.5">
+            <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span><strong className="text-foreground">Daily caps per key.</strong> Give any key a maximum number of calls per UTC day in Settings, so a leaked or runaway script cannot drain your balance. Leave it empty for unlimited, and change or remove the cap at any time without reissuing the key.</span>
           </li>
           <li className="flex gap-2.5">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />

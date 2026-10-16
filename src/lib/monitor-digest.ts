@@ -8,6 +8,8 @@ const WEEK_MS = 7 * 24 * 60 * 60_000;
 interface WatchRow {
   domain: string;
   target: string;
+  mode?: string;
+  deepScan: boolean;
   intervalDays: number;
   active: boolean;
   lastScore: number | null;
@@ -40,10 +42,11 @@ function buildHtml(rows: WatchRow[], siteName: string): string {
       const color = r.lastScore === null ? "#6b7280" : r.lastScore >= 70 ? "#0d6b4d" : r.lastScore >= 45 ? "#b45309" : "#b91c1c";
       const state = r.active ? `next check ${fmtIn(r.nextRunAt.getTime() - Date.now())}` : "paused";
       const note = r.pausedReason ? `<br/><span style="color:#b45309">${r.pausedReason}</span>` : "";
+      const deep = r.deepScan ? ` <span style="color:#0d6b4d;font-weight:700">· deep scan</span>` : "";
       return `<tr>
   <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">
     <strong>${r.domain}</strong><br/>
-    <span style="color:#6b7280;font-size:13px">${networkName(r.target)} · every ${r.intervalDays} days · ${state}</span>${note}
+    <span style="color:#6b7280;font-size:13px">${networkName(r.target)} · every ${r.intervalDays} days · ${state}${deep}</span>${note}
   </td>
   <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;color:${color};font-weight:700;white-space:nowrap">${scoreWord(r.lastScore)}</td>
 </tr>`;
@@ -64,7 +67,8 @@ function buildText(rows: WatchRow[], siteName: string): string {
     ...rows.map((r) => {
       const state = r.active ? `next check ${fmtIn(r.nextRunAt.getTime() - Date.now())}` : "paused";
       const note = r.pausedReason ? ` [${r.pausedReason}]` : "";
-      return `- ${r.domain} (${networkName(r.target)}, every ${r.intervalDays} days, ${state}): ${scoreWord(r.lastScore)}${note}`;
+      const deep = r.deepScan ? " · deep scan" : "";
+      return `- ${r.domain} (${networkName(r.target)}, every ${r.intervalDays} days, ${state}${deep}): ${scoreWord(r.lastScore)}${note}`;
     }),
     "",
     "Run a check any time from your dashboard.",
@@ -115,6 +119,7 @@ export async function maybeSendDigests(opts: { force?: boolean } = {}): Promise<
     const rows: WatchRow[] = user.watchItems.map((w) => ({
       domain: w.domain,
       target: w.target,
+      deepScan: w.deepScan,
       intervalDays: w.intervalDays,
       active: w.active,
       lastScore: w.lastScore,

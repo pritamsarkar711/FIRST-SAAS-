@@ -105,6 +105,7 @@ model ApiKey {
   keyHash      String    @unique // sha256 hex of the full key; the raw key is shown once
   lastUsedAt   DateTime?
   requestCount Int       @default(0)
+  dailyCap     Int? // max requests per UTC day for this key; null = unlimited
   revokedAt    DateTime?
   createdAt    DateTime  @default(now())
 

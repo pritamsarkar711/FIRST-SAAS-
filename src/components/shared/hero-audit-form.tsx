@@ -68,7 +68,7 @@ export function HeroAuditForm({ compact = false }: { compact?: boolean }) {
         <a href="/tools" className="font-semibold text-primary underline underline-offset-2">
           Run a free instant site check
         </a>{" "}
-        with seven quick health checks, no signup needed.
+        with eight quick health checks, no signup needed.
       </p>
     </div>
   );
