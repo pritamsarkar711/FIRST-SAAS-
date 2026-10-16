@@ -168,7 +168,7 @@ export function BlogManager() {
 
       {posts.length === 0 ? (
         <EmptyState
-          image="/illustrations/writer.png"
+          image="writer"
           title="No posts yet"
           body="Publishing helpful guides grows organic traffic. Write your first post with the editor."
           cta="Write the first post"

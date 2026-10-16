@@ -83,7 +83,7 @@ export function PaymentsManager() {
 
       {rows.length === 0 ? (
         <EmptyState
-          image="/illustrations/monetize.png"
+          image="growth"
           title="No payments in this view"
           body={filter === "PENDING" ? "Manual payment orders waiting for verification will appear here." : "Payments show up here as soon as customers order plans."}
           size="sm"

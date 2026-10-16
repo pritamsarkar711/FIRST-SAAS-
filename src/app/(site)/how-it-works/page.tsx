@@ -1,37 +1,37 @@
-import Image from "next/image";
 import Link from "next/link";
 import { CircleCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { Illustration } from "@/components/shared/illustration";
 
 export const metadata = {
   title: "How it works",
-  description: "From domain to fix-first roadmap: what the AdAudit engine checks, how the report is graded, and when to apply.",
+  description: "From domain to fix-first roadmap: what the Audit Form engine checks, how the report is graded, and when to apply.",
 };
 
 const STEPS = [
   {
     title: "Enter your domain",
     body: "Type your URL and choose the ad network you are targeting. No plugins, no account access, no tracking code needed. The crawler only sees what the public internet sees.",
-    img: "/illustrations/audit.png",
+    img: "audit-desk",
     alt: "Entering a domain to start an audit",
   },
   {
     title: "We crawl the real site",
     body: "The engine fetches your homepage, robots.txt and sitemap, then samples real articles. It records page counts, policy pages, navigation, content depth, images, platform, ads and analytics scripts.",
-    img: "/illustrations/index.png",
+    img: "index-rocket",
     alt: "Crawling pages from a sitemap",
   },
   {
     title: "The AI reviews the evidence",
     body: "A frontier model evaluates the crawl against published policy rules, thinking like a human reviewer: hidden risks, trust gaps, thin content, AI footprints and indexing problems.",
-    img: "/illustrations/report.png",
+    img: "report",
     alt: "AI reviewer analyzing findings",
   },
   {
     title: "Fix, re-check, apply",
     body: "You get a probability, a verdict and a numbered roadmap. Fix the reds, improve the oranges, re-run the audit and apply when the verdict says you are ready.",
-    img: "/illustrations/monetize.png",
+    img: "growth",
     alt: "Fixing issues and getting approved",
   },
 ];
@@ -52,8 +52,8 @@ export default function HowItWorksPage() {
         <div className="space-y-10">
           {STEPS.map((s, i) => (
             <div key={s.title} className={`grid items-center gap-8 lg:grid-cols-2 ${i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""}`}>
-              <div className="overflow-hidden rounded-lg border border-border">
-                <Image src={s.img} alt={s.alt} width={1344} height={768} className="h-auto w-full bg-card" />
+              <div className="overflow-hidden rounded-lg">
+                <Illustration name={s.img} alt={s.alt} />
               </div>
               <div>
                 <p className="text-sm font-bold uppercase tracking-wide text-primary">Step {i + 1}</p>
@@ -99,7 +99,7 @@ export default function HowItWorksPage() {
             "Credits never expire",
           ].map((t) => (
             <div key={t} className="flex items-center gap-2.5 rounded-md border border-border bg-card px-4 py-3.5 text-sm font-medium">
-              <CircleCheck className="h-4.5 w-4.5 shrink-0 text-ok" /> {t}
+              <CircleCheck className="h-4.5 w-4.5 shrink-0 text-primary" /> {t}
             </div>
           ))}
         </div>

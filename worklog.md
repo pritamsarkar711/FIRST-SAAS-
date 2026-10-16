@@ -466,3 +466,46 @@ Stage Summary:
 - Admins get full fleet visibility over scheduled monitoring (who runs what, how deep, how overdue), and the free tool now runs eight honest checks including mixed content and Terms verification.
 - Sandbox state: schema changed this round (ApiKey.dailyCap) and was pushed. Admin: 9,969 credits (QA audits charged as designed). Test user: 58 credits, 1 active deep monitor. Active keys: Zapier webhook (no cap), Cap QA key (admin-owned, cap 5, 3 calls today). No new settings keys.
 - Next priorities: Stripe/PayPal/SSLCommerz webhooks (blocked on a public URL); per-key usage page with export; monitor-level spend caps (max credits/day per user); sample-report showcase of the new mixed-content check; watchlist "Check now" could honor per-key caps analogy with a per-run credit preview; consider a "cap reached" notification so owners learn why a script stopped.
+
+---
+Task ID: 13
+Agent: Z.ai main
+Task: Critical bug fixes (preview broken + login redirect loop) + full UXpert redesign + Telenor font + vector illustration system + rebrand to Audit Form
+
+Work Log (user report: preview not working, ERR_TOO_MANY_REDIRECTS on login, site must follow uxpert.netlify.app design, Telenor font, vector illustrations with dark variants, remove unneeded stuff):
+
+ROOT-CAUSE FIXES (both were blocking the sandbox preview entirely):
+1. PREVIEW IFRAME BLOCKED: next.config.ts set "X-Frame-Options: DENY" on every route, which prevents the preview panel (different origin) from embedding the app. Removed that header (kept nosniff/referrer/permissions). This is why "preview not working".
+2. LOGIN REDIRECT LOOP: .env had NEXTAUTH_URL=http://localhost:3000. NextAuth v4 emitted absolute redirects to that URL; the preview platform rewrites localhost:3000 back to the preview domain, producing an infinite 3xx loop (ERR_TOO_MANY_REDIRECTS). Removed NEXTAUTH_URL, added AUTH_TRUST_HOST=true so NextAuth v4 derives origin from X-Forwarded-Host/Proto per request. Verified end-to-end THROUGH THE REAL PREVIEW URL with curl: csrf -> credentials callback -> session-token cookie -> /api/auth/session returns the user. Browser click-through login (test.publisher@example.com) also lands on /dashboard.
+3. Disabled the Next.js dev indicator badge (devIndicators: false) that floated over the UI.
+
+UXPERT DESIGN OVERHAUL (per user: extremely follow https://uxpert.netlify.app):
+- Studied the reference live (screenshots + CSS tokens): light blue-gray bands #E0EAF3, near-black #1D1D1D heavy headlines with coral accent words, coral #F86642 single primary, circled check bullets, numbered coral step circles, solid rounded uppercase CTAs, flat character illustrations, near-black footer.
+- globals.css: new token set (primary coral #F86642 light / #FF7A50 dark, band tokens, secondary/muted/accent re-tuned, radius 8px, semantic ok/warn/risk kept), body font-family Telenor with Noto Sans Bengali fallback, .bg-band utility, removed dotgrid hero texture, neutral gray scrollbars, dark palette re-tuned (#14181D base, #232B36 band).
+- Telenor font installed for real: downloaded official Telenor/Light/Bold .woff from telenor.com binaries into public/fonts and wired @font-face (300/400-500/600-800). Open Sans dependency removed from layout.
+- Rebrand: site name "Audit Form" everywhere (DB setting + SITE_DEFAULTS, metadata, PDF brand, digest, test email, all AdAudit strings in src renamed).
+- site-header: uppercase bold 13px nav, coral GET STARTED button, active link coral.
+- site-footer: near-black #1D1D1D dark footer (light and dark mode), coral accents, white payment-logo chips, Developer API link replaced with Sample report.
+- Home page rebuilt in the UXpert pattern: centered blue-gray hero with two-line coral-accent headline, audit form centered, three circled coral checks, hero-people illustration; network trust bar; "How auditing works" with coral 01/02/03 circles + coral step titles; features grid; three-colors section on band; tools grid; pricing; blog; FAQ; near-black CTA band with coral button.
+- Login/register: blue-gray band side panel with vector illustration; accent colors updated.
+- All remaining public pages (features, how-it-works, tools, about) switched from old AI PNGs to the new SVG set.
+
+FLAT VECTOR ILLUSTRATION SYSTEM (scripts/gen-illustrations.mjs):
+- Parametric flat-character kit (skin tones, hairstyles: bob/afro/short/bun/cap, poses: stand/point/wave/carry) + props (browser windows, checklists, magnifier, coins, rocket, shield clock, desk).
+- 8 scenes generated as true SVG in light + dark variants: hero-people, audit-desk, report, writer, growth, index-rocket, support, monitor. Dark variants in /public/illustrations/dark.
+- New <Illustration name="..."> component swaps light/dark via dark:hidden / hidden dark:block (works with class-based next-themes).
+- Deleted all 8 legacy AI-generated PNG illustrations; EmptyState component now takes SVG names (dashboard/admin callers updated).
+- Rebranded PDF palette + monitor digest colors to the new tokens.
+
+Verification (agent-browser, desktop 1366 + mobile 390, light + dark):
+- Home hero, how-it-works numbered circles, features, tools, pricing, sample report, blog, contact, login, register: rendered + screenshots reviewed in both themes; dark variants of illustrations confirmed.
+- Login click-through end-to-end in browser -> /dashboard renders with new palette; theme toggle works; dark dashboard verified.
+- Hero audit form: invalid domain blocked with message, valid domain routes to /register?domain=...&network=ADSENSE.
+- Mobile home + footer: stacks correctly, dark footer with payment chips, no overflow.
+- bun lint clean; 15 public routes return 200; dev.log free of runtime errors.
+
+Stage Summary:
+- The two preview-blocking bugs are gone: the preview iframe renders and login works on the real preview URL (verified via curl with session cookie + in-browser click-through).
+- The site now follows the UXpert design language with the Telenor brand font, coral primary, blue-gray bands, and a theme-aware flat-vector illustration system (8 scenes x light/dark).
+- Sandbox state: no schema changes. DB site.name now "Audit Form". .env: DATABASE_URL, NEXTAUTH_SECRET, AUTH_TRUST_HOST=true (NEXTAUTH_URL intentionally omitted; do not re-add a hardcoded localhost URL).
+- Next priorities: sweep remaining dashboard/manage subpages for small contrast details under the coral palette; /manage login + admin pages styling pass; apply coral/Telenor to PDF header art; consider a monitor-scene illustration on the watchlist page; blog post pages sample-report typography polish; verify Google OAuth only after client keys are configured.

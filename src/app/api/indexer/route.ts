@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   // Verify the key file is live at the user's site
   let verified = false;
   try {
-    const res = await fetch(keyFileUrl, { signal: AbortSignal.timeout(10_000), cache: "no-store", headers: { "User-Agent": "AdAuditBot/1.0" } });
+    const res = await fetch(keyFileUrl, { signal: AbortSignal.timeout(10_000), cache: "no-store", headers: { "User-Agent": "Audit FormBot/1.0" } });
     if (res.ok) verified = (await res.text()).trim() === key;
   } catch { /* not verified */ }
 

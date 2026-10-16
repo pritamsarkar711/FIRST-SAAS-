@@ -1,7 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import {
-  FileSearch, Gauge, ShieldCheck, FileDown, PenLine, Link2, Network,
+  FileSearch, Gauge, ShieldCheck, FileDown, PenLine, Network,
   CircleCheck, ArrowRight, BookOpen,
 } from "lucide-react";
 import {
@@ -10,12 +9,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { HeroAuditForm } from "@/components/shared/hero-audit-form";
 import { ReportMockup } from "@/components/shared/report-mockup";
+import { Illustration } from "@/components/shared/illustration";
 import { PricingCards, type PlanCard } from "@/components/shared/pricing-cards";
 import { BrandLogo } from "@/components/brand-logo";
 import { db } from "@/lib/db";
-import { getSetting, getUsdBdt, siteSettings } from "@/lib/settings";
+import { getUsdBdt, siteSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+
+const HERO_CHECKS = [
+  "No signup for the free check",
+  "Green, orange and red findings",
+  "Branded PDF report included",
+];
 
 const FEATURES = [
   {
@@ -52,18 +58,18 @@ const FEATURES = [
 
 const STEPS = [
   {
-    img: "/illustrations/audit.png",
-    title: "1. Point us at your domain",
+    n: "01",
+    title: "Point us at your domain",
     body: "Enter your URL and pick the ad network you are targeting. Our crawler reads your homepage, robots.txt, sitemap and sample articles.",
   },
   {
-    img: "/illustrations/report.png",
-    title: "2. The engine reviews everything",
+    n: "02",
+    title: "The engine reviews everything",
     body: "A frontier AI model reviews the evidence like a human policy reviewer: content depth, trust signals, policy risks and indexing health.",
   },
   {
-    img: "/illustrations/monetize.png",
-    title: "3. Fix, re-check, apply",
+    n: "03",
+    title: "Fix, re-check, apply",
     body: "Work through the green, orange and red findings and the fix-first roadmap. Re-run the audit, then apply with confidence.",
   },
 ];
@@ -97,32 +103,32 @@ const FAQS = [
 
 const TOOLS = [
   {
-    img: "/illustrations/writer.png",
+    img: "writer",
     icon: PenLine,
     title: "AdSense content writer",
     body: "Keyword in, publish-ready article out: E-E-A-T aligned, image placement, FAQ, SEO meta, WordPress publishing.",
     href: "/dashboard/writer",
   },
   {
-    img: "/illustrations/affiliate.png",
-    icon: Link2,
-    title: "Affiliate content writer",
-    body: "Product reviews and comparisons with honest pros and cons, disclosures and your own affiliate links.",
-    href: "/dashboard/writer?tab=affiliate",
-  },
-  {
-    img: "/illustrations/index.png",
+    img: "index-rocket",
     icon: BookOpen,
     title: "Quick index",
     body: "Submit new posts to IndexNow and get your fresh content discovered faster by search engines.",
     href: "/dashboard/indexer",
   },
   {
-    img: "/illustrations/support.png",
+    img: "growth",
     icon: Network,
     title: "Affiliate program",
     body: "Earn 20% recurring commission for every customer you refer. Withdraw to bKash, Nagad or Payoneer.",
     href: "/dashboard/affiliate",
+  },
+  {
+    img: "support",
+    icon: CircleCheck,
+    title: "Human support",
+    body: "Stuck on a rejection? Send us your report and we will walk you through the fixes, free for customers.",
+    href: "/contact",
   },
 ];
 
@@ -137,40 +143,36 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="dotgrid border-b border-border">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-20">
-          <div className="fade-up">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-sm border border-border bg-card px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-primary">
-              For blog publishers
-            </p>
-            <h1 className="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-foreground sm:text-[2.6rem]">
-              Will AdSense approve your site? Know before you apply.
-            </h1>
-            <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-muted-foreground sm:text-base">
-              Most rejections say only &ldquo;low value content&rdquo;. AdAudit crawls your site, reviews it like a
-              policy reviewer would, and shows your approval odds with every green, orange and red finding explained.
-            </p>
-            <div className="mt-6">
-              <HeroAuditForm />
-            </div>
-            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-ok" /> Free credits on signup</li>
-              <li className="flex items-center gap-1.5"><CircleCheck className="h-4 w-4 text-ok" /> PDF report included</li>
-              <li className="flex items-center gap-1.5">
-                <CircleCheck className="h-4 w-4 text-ok" />
-                <Link href="/sample-report" className="font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary">See a sample report</Link>
+      {/* Hero: light blue-gray band, centered heavy headline with coral accents */}
+      <section className="bg-band border-b border-border">
+        <div className="mx-auto max-w-4xl px-4 pt-14 text-center sm:px-6 sm:pt-20">
+          <h1 className="fade-up text-[2.15rem] font-extrabold leading-[1.15] tracking-tight text-foreground sm:text-[3rem]">
+            Will <span className="text-primary">AdSense</span> approve your site?{" "}
+            <span className="text-primary">Know before you apply.</span>
+          </h1>
+          <p className="fade-up mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">
+            Most rejections say only &ldquo;low value content&rdquo;. Audit Form crawls your site, reviews it like a
+            policy reviewer would, and shows your approval odds with every finding explained.
+          </p>
+          <div className="fade-up mx-auto mt-7 max-w-2xl">
+            <HeroAuditForm />
+          </div>
+          <ul className="fade-up mt-6 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+            {HERO_CHECKS.map((c) => (
+              <li key={c} className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <CircleCheck className="h-5 w-5 text-primary" aria-hidden="true" strokeWidth={2.2} />
+                {c}
               </li>
-            </ul>
-          </div>
-          <div className="fade-up lg:pl-4">
-            <ReportMockup />
-          </div>
+            ))}
+          </ul>
+        </div>
+        <div className="fade-up mx-auto mt-10 max-w-3xl px-4 pb-0 sm:px-6">
+          <Illustration name="hero-people" alt="Illustration of three bloggers" loading="eager" className="mx-auto max-w-xl" />
         </div>
       </section>
 
       {/* Network trust bar */}
-      <section className="border-b border-border bg-card">
+      <section className="bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-center sm:gap-10 sm:px-6">
           <p className="text-sm font-semibold text-muted-foreground">Readiness checks for:</p>
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
@@ -180,9 +182,33 @@ export default async function HomePage() {
               { name: "Mediavine", src: "/logos/mediavine.png" },
               { name: "Raptive", src: "/logos/raptive.png" },
             ].map((n) => (
-              <div key={n.name} className="flex items-center gap-2 opacity-90">
+              <div key={n.name} className="flex items-center gap-2">
                 <BrandLogo name={n.name} src={n.src} size={22} />
-                <span className="text-sm font-semibold text-foreground">{n.name}</span>
+                <span className="text-sm font-bold text-foreground">{n.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works: UXpert numbered circles */}
+      <section className="border-y border-border bg-card">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+          <h2 className="text-center text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+            How auditing with <span className="text-primary">Audit Form</span> works
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-[15px] leading-relaxed text-muted-foreground">
+            Take a minute to imagine opening the AdSense application form with zero doubt. That is what an
+            evidence-first audit gives you: a score, a verdict, and a fix list in the right order.
+          </p>
+          <div className="mt-12 grid gap-10 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <div key={s.n} className="text-center">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-lg font-extrabold text-primary-foreground" aria-hidden="true">
+                  {s.n}
+                </span>
+                <h3 className="mt-5 text-lg font-extrabold text-primary">{s.title}</h3>
+                <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
             ))}
           </div>
@@ -191,48 +217,34 @@ export default async function HomePage() {
 
       {/* Features */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="max-w-xl">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Everything a reviewer looks at, in one report</h2>
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+            Everything a reviewer looks at, <span className="text-primary">in one report</span>
+          </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
             Six analysis layers, one honest verdict, and a fix list ordered by what moves the needle first.
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.07)]">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-primary">
+            <div key={f.title} className="rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(29,29,29,0.08)]">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-accent-foreground">
                 <f.icon className="h-5 w-5" aria-hidden="true" />
               </span>
-              <h3 className="mt-4 font-bold text-foreground">{f.title}</h3>
+              <h3 className="mt-4 font-extrabold text-foreground">{f.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="border-y border-border bg-secondary/50">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">How it works</h2>
-          <div className="mt-10 grid gap-8 lg:grid-cols-3">
-            {STEPS.map((s) => (
-              <div key={s.title} className="rounded-lg border border-border bg-card p-5">
-                <div className="relative h-40 overflow-hidden rounded-md border border-border bg-card">
-                  <Image src={s.img} alt={s.title} fill sizes="(max-width: 1024px) 100vw, 380px" className="object-cover" />
-                </div>
-                <h3 className="mt-4 font-bold text-foreground">{s.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Report anatomy */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="grid items-center gap-10 lg:grid-cols-2">
+      <section className="bg-band border-y border-border">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Three colors. Zero guesswork.</h2>
+            <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+              Three colors. <span className="text-primary">Zero guesswork.</span>
+            </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
               Every finding is graded so you always know what is fine, what needs work, and what is actively
               blocking your approval.
@@ -246,39 +258,39 @@ export default async function HomePage() {
                 <div key={r.t} className="flex items-start gap-3 rounded-md border border-border bg-card p-4">
                   <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${r.dot}`} aria-hidden="true" />
                   <div>
-                    <p className="font-bold text-foreground">{r.t}</p>
+                    <p className="font-extrabold text-foreground">{r.t}</p>
                     <p className="text-sm text-muted-foreground">{r.d}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <Image src="/illustrations/report.png" alt="Sample audit report with green, orange and red findings" width={1024} height={1024} className="h-auto w-full bg-card" />
-          </div>
+          <ReportMockup />
         </div>
       </section>
 
       {/* Tools */}
-      <section className="border-y border-border bg-secondary/50">
+      <section className="bg-background">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Tools that finish the job</h2>
-          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+          <h2 className="text-center text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+            Tools that <span className="text-primary">finish the job</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-[15px] leading-relaxed text-muted-foreground">
             Fixing a rejection usually means writing. These tools are built for it.
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             {TOOLS.map((t) => (
-              <Link key={t.title} href={t.href} className="group flex gap-4 rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
-                <div className="hidden h-24 w-32 shrink-0 overflow-hidden rounded-md border border-border sm:block">
-                  <Image src={t.img} alt="" width={128} height={96} className="h-full w-full object-cover" />
+              <Link key={t.title} href={t.href} className="group flex gap-4 rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(29,29,29,0.08)]">
+                <div className="hidden h-28 w-32 shrink-0 items-center overflow-hidden rounded-md sm:flex">
+                  <Illustration name={t.img} alt="" className="h-full w-full [&>img]:h-full [&>img]:w-full [&>img]:object-cover" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <t.icon className="h-4.5 w-4.5 text-primary" aria-hidden="true" />
-                    <h3 className="font-bold text-foreground">{t.title}</h3>
+                    <h3 className="font-extrabold text-foreground">{t.title}</h3>
                   </div>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t.body}</p>
-                  <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                  <span className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-primary">
                     Open tool <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </div>
@@ -289,33 +301,39 @@ export default async function HomePage() {
       </section>
 
       {/* Pricing */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="mx-auto max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Simple one-time plans</h2>
-          <p className="mt-3 text-[15px] text-muted-foreground">Pick credits, not subscriptions. They never expire.</p>
-        </div>
-        <div className="mt-10">
-          <PricingCards plans={plans} rate={rate} />
+      <section className="border-y border-border bg-card">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-xl text-center">
+            <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+              Simple <span className="text-primary">one-time plans</span>
+            </h2>
+            <p className="mt-3 text-[15px] text-muted-foreground">Pick credits, not subscriptions. They never expire.</p>
+          </div>
+          <div className="mt-10">
+            <PricingCards plans={plans} rate={rate} />
+          </div>
         </div>
       </section>
 
       {/* Blog preview */}
       {posts.length > 0 && (
-        <section className="border-t border-border bg-secondary/50">
+        <section className="bg-background">
           <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
             <div className="flex items-end justify-between">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground">From the blog</h2>
-              <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+              <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground">
+                From <span className="text-primary">the blog</span>
+              </h2>
+              <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-bold uppercase tracking-wide text-primary hover:underline">
                 All posts <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {posts.map((p) => (
-                <Link key={p.id} href={`/blog/${p.slug}`} className="group rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(27,38,32,0.08)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                <Link key={p.id} href={`/blog/${p.slug}`} className="group rounded-lg border border-border bg-card p-5 transition-shadow hover:shadow-[0_2px_12px_rgba(29,29,29,0.08)]">
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">
                     {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
                   </p>
-                  <h3 className="mt-2 font-bold leading-snug text-foreground group-hover:text-primary">{p.title}</h3>
+                  <h3 className="mt-2 font-extrabold leading-snug text-foreground group-hover:text-primary">{p.title}</h3>
                   <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>
                 </Link>
               ))}
@@ -326,29 +344,33 @@ export default async function HomePage() {
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Questions publishers ask</h2>
+        <h2 className="text-center text-[1.7rem] font-extrabold tracking-tight text-foreground sm:text-[2.2rem]">
+          Questions <span className="text-primary">publishers ask</span>
+        </h2>
         <Accordion type="single" collapsible className="mt-8">
           {FAQS.map((f, i) => (
             <AccordionItem key={i} value={`f${i}`}>
-              <AccordionTrigger className="text-left font-semibold">{f.q}</AccordionTrigger>
+              <AccordionTrigger className="text-left font-bold">{f.q}</AccordionTrigger>
               <AccordionContent className="leading-relaxed text-muted-foreground">{f.a}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
       </section>
 
-      {/* CTA */}
-      <section className="bg-primary">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-14 text-center sm:px-6">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Stop guessing. Audit before you apply.</h2>
-          <p className="max-w-lg text-[15px] leading-relaxed text-white/85">
+      {/* CTA: near-black band with coral button */}
+      <section className="bg-[#1d1d1d] text-white dark:bg-[#10141a]">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-16 text-center sm:px-6">
+          <h2 className="max-w-2xl text-[1.7rem] font-extrabold tracking-tight sm:text-[2.2rem]">
+            Stop guessing. <span className="text-[#ff7a50]">Audit before you apply.</span>
+          </h2>
+          <p className="max-w-lg text-[15px] leading-relaxed text-white/75">
             A rejection costs you weeks. An audit takes minutes and shows you exactly what to fix.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg" variant="secondary" className="h-12 rounded-md px-8 font-semibold">
+            <Button asChild size="lg" className="h-12 rounded-md px-8 text-sm font-bold uppercase tracking-wide">
               <Link href="/register">Start with free credits</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-12 rounded-md border-white/40 bg-transparent px-8 font-semibold text-white hover:bg-white/10 hover:text-white">
+            <Button asChild size="lg" variant="outline" className="h-12 rounded-md border-white/30 bg-transparent px-8 text-sm font-bold uppercase tracking-wide text-white hover:bg-white/10 hover:text-white">
               <Link href="/how-it-works">See how it works</Link>
             </Button>
           </div>

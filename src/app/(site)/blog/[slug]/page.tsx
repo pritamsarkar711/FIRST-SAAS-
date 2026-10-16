@@ -50,8 +50,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     description: post.metaDescription || post.excerpt || undefined,
     datePublished: post.publishedAt?.toISOString(),
     dateModified: post.updatedAt.toISOString(),
-    author: { "@type": "Person", name: post.author.name || "AdAudit Team" },
-    publisher: { "@type": "Organization", name: "AdAudit" },
+    author: { "@type": "Person", name: post.author.name || "Audit Form Team" },
+    publisher: { "@type": "Organization", name: "Audit Form" },
     mainEntityOfPage: post.slug,
   };
 
@@ -75,7 +75,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </Link>
         <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-[2.4rem]">{post.title}</h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
-          <span>{post.author.name || "AdAudit Team"}</span>
+          <span>{post.author.name || "Audit Form Team"}</span>
           <span aria-hidden="true">·</span>
           <span>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}</span>
           <span aria-hidden="true">·</span>

@@ -125,7 +125,7 @@ export default async function DomainTrendPage({ params }: { params: Promise<{ do
 
       {audits.length === 0 ? (
         <EmptyState
-          image="/illustrations/audit.png"
+          image="audit-desk"
           title="No audits for this domain"
           body="Run an audit and every score, verdict and section result for this domain will collect here."
           cta="Run first audit"

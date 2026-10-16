@@ -1,11 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Illustration } from "@/components/shared/illustration";
 
 export const metadata = {
   title: "About",
-  description: "Why AdAudit exists: thousands of publishers get rejected from AdSense without ever learning why. We fix the information gap.",
+  description: "Why Audit Form exists: thousands of publishers get rejected from AdSense without ever learning why. We fix the information gap.",
 };
 
 export default function AboutPage() {
@@ -19,7 +19,7 @@ export default function AboutPage() {
           <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground sm:text-base">
             Every week, thousands of publishers apply to Google AdSense and get back the same two words: low value
             content. No reason, no details, no path forward. They rewrite, reapply, and get rejected again. We built
-            AdAudit to close that gap.
+            Audit Form to close that gap.
           </p>
         </div>
       </section>
@@ -45,7 +45,7 @@ export default function AboutPage() {
                 "Actionable: a numbered roadmap, not vague advice",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2 text-sm font-medium text-foreground">
-                  <CircleCheck className="mt-0.5 h-4.5 w-4.5 shrink-0 text-ok" /> {t}
+                  <CircleCheck className="mt-0.5 h-4.5 w-4.5 shrink-0 text-primary" /> {t}
                 </li>
               ))}
             </ul>
@@ -54,7 +54,7 @@ export default function AboutPage() {
             </Button>
           </div>
           <div className="overflow-hidden rounded-lg border border-border">
-            <Image src="/illustrations/support.png" alt="The AdAudit team supporting publishers" width={1024} height={1024} className="h-auto w-full bg-card" />
+            <Illustration name="support" alt="The Audit Form team supporting publishers" />
           </div>
         </div>
       </section>

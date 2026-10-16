@@ -220,7 +220,7 @@ export default async function DashboardHome() {
         </div>
         {audits.length === 0 ? (
           <EmptyState
-            image="/illustrations/audit.png"
+            image="audit-desk"
             title="No audits yet"
             body="Your first audit takes about two minutes and shows exactly what a reviewer would flag."
             cta="Run first audit"

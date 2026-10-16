@@ -289,7 +289,7 @@ function Field({ label, value, onChange, type = "text", wide, mono }: { label: s
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex items-center gap-2.5 text-sm font-semibold text-foreground sm:col-span-2">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[#0d6b4d]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[#f86642]" />
       {label}
     </label>
   );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Terminal, KeyRound, Gauge, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Developer API | AdAudit",
+  title: "Developer API | Audit Form",
   description: "Run AdSense readiness audits programmatically. Create a key, POST a domain, poll for the report. Same engine as the dashboard.",
 };
 
@@ -48,7 +48,7 @@ export default function ApiDocsPage() {
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Developers</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">AdAudit API</h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Audit Form API</h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Run the same audit engine the dashboard uses, from your own code. Create a key in{" "}
           <a href="/dashboard/settings" className="font-semibold text-primary underline underline-offset-2">Settings</a>,

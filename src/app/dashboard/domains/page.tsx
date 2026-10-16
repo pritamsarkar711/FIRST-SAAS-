@@ -61,7 +61,7 @@ export default async function DomainsIndexPage() {
 
       {domains.length === 0 ? (
         <EmptyState
-          image="/illustrations/audit.png"
+          image="audit-desk"
           title="No domains yet"
           body="Run your first audit and the domain will appear here with its full score history."
           cta="Run first audit"

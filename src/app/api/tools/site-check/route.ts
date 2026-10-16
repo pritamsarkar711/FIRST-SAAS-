@@ -23,7 +23,7 @@ async function fetchText(url: string, timeoutMs = TIMEOUT_MS): Promise<{ ok: boo
     const res = await fetch(url, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; AdAuditSiteCheck/1.0; +https://adaudit.app/bot)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Audit FormSiteCheck/1.0; +https://adaudit.app/bot)" },
       cache: "no-store",
     });
     const reader = res.body?.getReader();

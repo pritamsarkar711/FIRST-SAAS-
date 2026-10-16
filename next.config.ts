@@ -7,12 +7,14 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   poweredByHeader: false,
+  devIndicators: false,
   async headers() {
     return [
       {
         source: "/:path*",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
+          // NOTE: X-Frame-Options must NOT be set here - the sandbox preview
+          // panel embeds this app in an iframe on a different origin.
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-DNS-Prefetch-Control", value: "on" },

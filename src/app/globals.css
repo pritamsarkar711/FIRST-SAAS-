@@ -3,11 +3,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ---------- Telenor (Grameenphone brand face), self-hosted ---------- */
+@font-face {
+  font-family: "Telenor";
+  src: url("/fonts/Telenor-Light.woff") format("woff");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Telenor";
+  src: url("/fonts/Telenor-Regular.woff") format("woff");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Telenor";
+  src: url("/fonts/Telenor-Bold.woff") format("woff");
+  font-weight: 600 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-app);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-band: var(--band);
+  --color-band-foreground: var(--band-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -50,78 +75,82 @@
 }
 
 :root {
-  --radius: 6px;
+  --radius: 8px;
 
-  /* Brand: single primary — deep emerald. No gradients anywhere. */
-  --background: #ffffff;
-  --foreground: #1b2620;
+  /* Brand: single primary - coral. Flat, no gradients anywhere. */
+  --background: #f6f6f6;
+  --foreground: #1d1d1d;
   --card: #ffffff;
-  --card-foreground: #1b2620;
+  --card-foreground: #1d1d1d;
   --popover: #ffffff;
-  --popover-foreground: #1b2620;
-  --primary: #0d6b4d;
+  --popover-foreground: #1d1d1d;
+  --primary: #f86642;
   --primary-foreground: #ffffff;
-  --secondary: #f2f6f4;
-  --secondary-foreground: #22423a;
-  --muted: #f5f7f6;
-  --muted-foreground: #5d6b64;
-  --accent: #ebf3ef;
-  --accent-foreground: #0d5c42;
-  --destructive: #bb3a22;
-  --border: #e3e9e6;
-  --input: #dbe2de;
-  --ring: #0d6b4d;
-  --chart-1: #0d6b4d;
-  --chart-2: #4c9a78;
-  --chart-3: #b45309;
-  --chart-4: #bb3a22;
-  --chart-5: #5d6b64;
+  --secondary: #eef0f2;
+  --secondary-foreground: #333a41;
+  --muted: #f0f1f3;
+  --muted-foreground: #5b6470;
+  --accent: #fdeae4;
+  --accent-foreground: #c2410c;
+  --band: #e0eaf3;
+  --band-foreground: #1d1d1d;
+  --destructive: #c73a2a;
+  --border: #e3e7eb;
+  --input: #d5dbe1;
+  --ring: #f86642;
+  --chart-1: #f86642;
+  --chart-2: #2f8f83;
+  --chart-3: #ffb84c;
+  --chart-4: #c73a2a;
+  --chart-5: #5b6470;
   --sidebar: #ffffff;
-  --sidebar-foreground: #1b2620;
-  --sidebar-primary: #0d6b4d;
+  --sidebar-foreground: #1d1d1d;
+  --sidebar-primary: #f86642;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ebf3ef;
-  --sidebar-accent-foreground: #0d5c42;
-  --sidebar-border: #e3e9e6;
-  --sidebar-ring: #0d6b4d;
+  --sidebar-accent: #fdeae4;
+  --sidebar-accent-foreground: #c2410c;
+  --sidebar-border: #e3e7eb;
+  --sidebar-ring: #f86642;
 
-  /* Status scale used across audits + reports */
-  --ok: #1b7f4d;
-  --ok-soft: #e9f5ee;
-  --warn: #b45309;
+  /* Status scale used across audits + reports (semantic, stays) */
+  --ok: #1f9d66;
+  --ok-soft: #e7f5ee;
+  --warn: #c77700;
   --warn-soft: #fdf3e3;
-  --risk: #bb3a22;
-  --risk-soft: #fbeae6;
+  --risk: #d64545;
+  --risk-soft: #fbeae8;
 }
 
 .dark {
-  --background: #10160f;
-  --foreground: #e8ede9;
-  --card: #161d18;
-  --card-foreground: #e8ede9;
-  --popover: #161d18;
-  --popover-foreground: #e8ede9;
-  --primary: #35a37c;
-  --primary-foreground: #0b130e;
-  --secondary: #1c2620;
-  --secondary-foreground: #d7e2da;
-  --muted: #1a231d;
-  --muted-foreground: #93a39a;
-  --accent: #1b2a22;
-  --accent-foreground: #a9d6c0;
-  --destructive: #e05b41;
-  --border: #26302a;
-  --input: #2c3831;
-  --ring: #35a37c;
-  --sidebar: #161d18;
-  --sidebar-foreground: #e8ede9;
-  --sidebar-primary: #35a37c;
-  --sidebar-primary-foreground: #0b130e;
-  --sidebar-accent: #1b2a22;
-  --sidebar-accent-foreground: #a9d6c0;
-  --sidebar-border: #26302a;
-  --sidebar-ring: #35a37c;
-  --ok: #46b378;
+  --background: #14181d;
+  --foreground: #eceff2;
+  --card: #1c232b;
+  --card-foreground: #eceff2;
+  --popover: #1c232b;
+  --popover-foreground: #eceff2;
+  --primary: #ff7a50;
+  --primary-foreground: #1a1208;
+  --secondary: #232b34;
+  --secondary-foreground: #d5dbe1;
+  --muted: #20272f;
+  --muted-foreground: #98a4b0;
+  --accent: #38241c;
+  --accent-foreground: #ffa585;
+  --band: #232b36;
+  --band-foreground: #eceff2;
+  --destructive: #e0604a;
+  --border: #2a333e;
+  --input: #354049;
+  --ring: #ff7a50;
+  --sidebar: #1c232b;
+  --sidebar-foreground: #eceff2;
+  --sidebar-primary: #ff7a50;
+  --sidebar-primary-foreground: #1a1208;
+  --sidebar-accent: #38241c;
+  --sidebar-accent-foreground: #ffa585;
+  --sidebar-border: #2a333e;
+  --sidebar-ring: #ff7a50;
+  --ok: #43b57f;
   --ok-soft: #16281d;
   --warn: #e08f2f;
   --warn-soft: #2b2113;
@@ -139,8 +168,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Telenor", "Noto Sans Bengali", "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-feature-settings: "kern";
     text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.015em;
   }
   ::selection {
     background: var(--primary);
@@ -148,27 +181,33 @@
   }
 }
 
-/* Thin, unobtrusive scrollbars (no purple/blue) */
+/* Thin, unobtrusive scrollbars (neutral gray, never blue) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #c3cdc7 transparent;
+  scrollbar-color: #c3cad2 transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #c3cdc7;
+  background: #c3cad2;
   border-radius: 8px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+.dark * {
+  scrollbar-color: #3a4652 transparent;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background: #3a4652;
+}
 
-/* Dotted texture used sparingly on hero (flat, no gradient) */
-.dotgrid {
-  background-image: radial-gradient(#d8e2dc 1px, transparent 1px);
-  background-size: 18px 18px;
+/* Light blue-gray hero/feature band (UXpert-style section background) */
+.bg-band {
+  background-color: var(--band);
+  color: var(--band-foreground);
 }
 
 /* Footer safe area for iOS */
@@ -180,19 +219,17 @@
 .article-body {
   font-size: 1.02rem;
   line-height: 1.75;
-  color: #243029;
+  color: var(--foreground);
 }
 .article-body h2 {
   font-size: 1.4rem;
   font-weight: 700;
   margin: 1.8em 0 0.7em;
-  color: #16211b;
 }
 .article-body h3 {
   font-size: 1.15rem;
   font-weight: 700;
   margin: 1.5em 0 0.6em;
-  color: #16211b;
 }
 .article-body h4 {
   font-size: 1.02rem;
@@ -223,9 +260,9 @@
   border-left: 3px solid var(--primary);
   padding: 0.4em 0 0.4em 1em;
   margin: 1.2em 0;
-  color: #43534a;
+  color: var(--muted-foreground);
 }
-.article-body strong { font-weight: 700; color: #16211b; }
+.article-body strong { font-weight: 700; }
 
 /* CKEditor surface polish */
 .ck.ck-editor__editable_inline {

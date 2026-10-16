@@ -29,14 +29,14 @@ export function SiteHeader({ siteName }: { siteName: string }) {
           <Logo name={siteName} />
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+        <nav className="hidden items-center gap-6 lg:flex" aria-label="Main navigation">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-                pathname === item.href && "bg-secondary text-foreground"
+                "text-[13px] font-bold uppercase tracking-wide text-foreground/80 transition-colors hover:text-primary",
+                pathname === item.href && "text-primary"
               )}
             >
               {item.label}
@@ -44,13 +44,16 @@ export function SiteHeader({ siteName }: { siteName: string }) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle />
-          <Button asChild variant="ghost" size="sm" className="font-semibold">
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button asChild size="sm" className="font-semibold">
-            <Link href="/register">Start free</Link>
+          <Link
+            href="/login"
+            className="text-[13px] font-bold uppercase tracking-wide text-foreground transition-colors hover:text-primary"
+          >
+            Sign in
+          </Link>
+          <Button asChild className="h-10 rounded-md px-5 text-[13px] font-bold uppercase tracking-wide">
+            <Link href="/register">Get started</Link>
           </Button>
         </div>
 
@@ -73,7 +76,7 @@ export function SiteHeader({ siteName }: { siteName: string }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2.5 text-[15px] font-medium text-foreground hover:bg-secondary"
+                className="block rounded-md px-3 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground hover:bg-secondary"
               >
                 {item.label}
               </Link>
@@ -86,8 +89,8 @@ export function SiteHeader({ siteName }: { siteName: string }) {
               <Button asChild variant="outline" className="h-11">
                 <Link href="/login" onClick={() => setOpen(false)}>Sign in</Link>
               </Button>
-              <Button asChild className="h-11">
-                <Link href="/register" onClick={() => setOpen(false)}>Start free</Link>
+              <Button asChild className="h-11 font-bold uppercase tracking-wide">
+                <Link href="/register" onClick={() => setOpen(false)}>Get started</Link>
               </Button>
             </div>
           </nav>

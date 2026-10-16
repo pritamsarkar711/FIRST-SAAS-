@@ -54,7 +54,7 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
     <div className="flex min-h-screen border-t-4 border-primary">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex">
         <div className="border-b border-border px-5 py-4">
-          <Link href="/manage"><Logo name="AdAudit Manage" /></Link>
+          <Link href="/manage"><Logo name="Audit Form Manage" /></Link>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4">{nav}</div>
         <div className="border-t border-border p-4">
@@ -71,7 +71,7 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
-              <Logo name="AdAudit Manage" />
+              <Logo name="Audit Form Manage" />
               <button onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary" aria-label="Close menu">
                 <X className="h-5 w-5" />
               </button>

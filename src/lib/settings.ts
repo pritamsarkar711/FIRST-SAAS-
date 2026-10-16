@@ -40,7 +40,7 @@ export interface SiteSettings {
   minWithdrawUsd: number;
 }
 export const SITE_DEFAULTS: SiteSettings = {
-  name: "AdAudit",
+  name: "Audit Form",
   tagline: "Know your AdSense approval odds before you apply.",
   supportEmail: "support@adaudit.app",
   usdBdt: 122,

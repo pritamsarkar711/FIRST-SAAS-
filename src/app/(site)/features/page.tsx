@@ -1,9 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import {
   FileSearch, Gauge, ShieldCheck, FileDown, PenLine, Network, CircleCheck, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Illustration } from "@/components/shared/illustration";
 
 export const metadata = {
   title: "Features",
@@ -90,8 +90,8 @@ export default function FeaturesPage() {
       <section className="border-y border-border bg-secondary/50">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="grid items-center gap-10 lg:grid-cols-2">
-            <div className="overflow-hidden rounded-lg border border-border">
-              <Image src="/illustrations/audit.png" alt="Audit engine examining a website page" width={1344} height={768} className="h-auto w-full bg-card" />
+            <div className="overflow-hidden rounded-lg">
+              <Illustration name="audit-desk" alt="Audit engine examining a website page" />
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Three modes, one engine</h2>

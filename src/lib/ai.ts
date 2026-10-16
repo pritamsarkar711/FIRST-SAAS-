@@ -33,7 +33,7 @@ async function openRouterChat(ai: AiSettings, args: LlmArgs, model: string): Pro
       Authorization: `Bearer ${ai.openrouterKey}`,
       "Content-Type": "application/json",
       "HTTP-Referer": process.env.NEXTAUTH_URL || "https://adaudit.app",
-      "X-Title": "AdAudit",
+      "X-Title": "Audit Form",
     },
     body: JSON.stringify({
       model,

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
           await transport.sendMail({
             from: smtp.from || smtp.user,
             to: msg.email,
-            subject: `Re: ${msg.reason} — AdAudit support`,
+            subject: `Re: ${msg.reason} — Audit Form support`,
             text: parsed.data.reply,
           });
         }

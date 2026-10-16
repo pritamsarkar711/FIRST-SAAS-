@@ -70,7 +70,7 @@ export function MessagesManager() {
 
       {messages.length === 0 ? (
         <EmptyState
-          image="/illustrations/support.png"
+          image="support"
           title="Inbox is empty"
           body="Messages from the public contact form will appear here, grouped by reason."
           size="sm"

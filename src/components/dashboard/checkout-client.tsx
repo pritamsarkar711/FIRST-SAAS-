@@ -137,7 +137,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
           )}
 
           <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-muted-foreground">
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#0d6b4d]" />
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#f86642]" />
             <span>I agree to the <Link href="/terms" target="_blank" className="font-semibold text-primary hover:underline">Terms</Link> and the{" "}
               <Link href="/refund" target="_blank" className="font-semibold text-primary hover:underline">Refund Policy</Link>.</span>
           </label>

@@ -218,7 +218,7 @@ export function WatchlistManager({ credits, costs, deepCost = 6 }: { credits: nu
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Site monitoring</h1>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Put your important domains on a repeating check. AdAudit re-audits each site on its schedule,
+            Put your important domains on a repeating check. Audit Form re-audits each site on its schedule,
             scores it, and keeps a trend of every check so you can see approval odds moving.
           </p>
         </div>
@@ -412,9 +412,9 @@ export function WatchlistManager({ credits, costs, deepCost = 6 }: { credits: nu
             </ul>
           ) : (
             <EmptyState
-              image="/illustrations/monetize.png"
+              image="growth"
               title="No domains monitored yet"
-              body="Add a domain and AdAudit will re-check it on a schedule, keep every score, and show you the trend."
+              body="Add a domain and Audit Form will re-check it on a schedule, keep every score, and show you the trend."
               size="md"
             />
           )}

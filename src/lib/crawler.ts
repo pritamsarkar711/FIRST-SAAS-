@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { assertPublicUrl, normalizeDomain } from "@/lib/guard";
 
-const UA = "Mozilla/5.0 (compatible; AdAuditBot/1.0; +https://adaudit.app/bot)";
+const UA = "Mozilla/5.0 (compatible; Audit FormBot/1.0; +https://adaudit.app/bot)";
 const TIMEOUT = 15_000;
 
 export interface PageSignals {

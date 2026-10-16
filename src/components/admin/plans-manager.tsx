@@ -107,7 +107,7 @@ export function PlansManager() {
                 className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4 accent-[#0d6b4d]" />
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4 accent-[#f86642]" />
               Active (visible to customers)
             </label>
           </div>

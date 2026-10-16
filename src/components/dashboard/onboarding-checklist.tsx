@@ -69,7 +69,7 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {doneCount === steps.length
               ? "Everything is set up. Your account is in great shape."
-              : `${steps.length - doneCount} step${steps.length - doneCount === 1 ? "" : "s"} to get the most out of AdAudit.`}
+              : `${steps.length - doneCount} step${steps.length - doneCount === 1 ? "" : "s"} to get the most out of Audit Form.`}
           </p>
         </div>
         <button

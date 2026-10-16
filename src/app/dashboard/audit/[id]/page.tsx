@@ -45,7 +45,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
   // Plain-text summary for the copy-to-clipboard button
   const verdictWord = report.verdict === "APPLY_NOW" ? "Apply now" : report.verdict === "WAIT_AND_IMPROVE" ? "Wait and improve" : report.verdict === "HIGH_RISK" ? "High risk" : report.verdict;
   const summaryText = [
-    `AdAudit report for ${audit.domain} (${networkName(audit.target)})`,
+    `Audit Form report for ${audit.domain} (${networkName(audit.target)})`,
     `Approval probability: ${report.probability}% (${verdictWord})`,
     ``,
     report.summary,
@@ -74,7 +74,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-6">
       <div className="hidden print:block">
-        <p className="text-lg font-bold">AdAudit — Approval Readiness Report</p>
+        <p className="text-lg font-bold">Audit Form — Approval Readiness Report</p>
       </div>
       <Link href="/dashboard/audit" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline print:hidden">
         <ArrowLeft className="h-3.5 w-3.5" /> All audits

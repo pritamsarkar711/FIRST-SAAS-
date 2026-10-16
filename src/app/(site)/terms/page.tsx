@@ -4,13 +4,13 @@ const SECTIONS: { h: string; p: string[] }[] = [
   {
     h: "1. Acceptance",
     p: [
-      "By creating an AdAudit account or using the service you agree to these Terms of Service. If you do not agree, do not use the service. These terms apply to all plans, tools and features.",
+      "By creating an Audit Form account or using the service you agree to these Terms of Service. If you do not agree, do not use the service. These terms apply to all plans, tools and features.",
     ],
   },
   {
     h: "2. The service",
     p: [
-      "AdAudit analyzes publicly accessible websites and produces an estimate of approval readiness for advertising networks such as Google AdSense, Ezoic, Mediavine and Raptive. Results are informational estimates, not guarantees. AdAudit is not affiliated with, endorsed by, or acting on behalf of Google or any ad network.",
+      "Audit Form analyzes publicly accessible websites and produces an estimate of approval readiness for advertising networks such as Google AdSense, Ezoic, Mediavine and Raptive. Results are informational estimates, not guarantees. Audit Form is not affiliated with, endorsed by, or acting on behalf of Google or any ad network.",
       "Final approval decisions are always made by the ad networks themselves. We do not control and cannot promise any outcome.",
     ],
   },
@@ -44,7 +44,7 @@ const SECTIONS: { h: string; p: string[] }[] = [
   {
     h: "7. Liability",
     p: [
-      "The service is provided as is. To the maximum extent permitted by law, AdAudit is not liable for indirect or consequential damages, lost revenue, rejected applications, or losses arising from reliance on audit results. Total liability is limited to the amount you paid in the 12 months before the claim.",
+      "The service is provided as is. To the maximum extent permitted by law, Audit Form is not liable for indirect or consequential damages, lost revenue, rejected applications, or losses arising from reliance on audit results. Total liability is limited to the amount you paid in the 12 months before the claim.",
     ],
   },
   {

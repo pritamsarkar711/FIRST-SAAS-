@@ -75,7 +75,7 @@ async function createSslCommerzSession(opts: {
   params.set("cancel_url", `${opts.origin}/dashboard/billing/checkout?plan=${opts.planId}&canceled=1`);
   params.set("emi_option", "0");
   params.set("shipping_method", "NO");
-  params.set("product_name", `AdAudit ${opts.planName} plan`);
+  params.set("product_name", `Audit Form ${opts.planName} plan`);
   params.set("product_category", "Software");
   params.set("product_profile", "software-generic");
   params.set("cus_name", opts.name || opts.email.split("@")[0]);
@@ -137,12 +137,12 @@ async function createPayPalOrder(opts: {
         intent: "CAPTURE",
         purchase_units: [{
           custom_id: opts.paymentId,
-          description: `AdAudit ${opts.planName} plan`,
+          description: `Audit Form ${opts.planName} plan`,
           amount: { currency_code: "USD", value: opts.priceUsd.toFixed(2), breakdown: {
             item_total: { currency_code: "USD", value: opts.priceUsd.toFixed(2) },
           } },
           items: [{
-            name: `AdAudit ${opts.planName} plan`,
+            name: `Audit Form ${opts.planName} plan`,
             description: `${opts.credits.toLocaleString()} audit credits`,
             quantity: "1",
             unit_amount: { currency_code: "USD", value: opts.priceUsd.toFixed(2) },
@@ -150,7 +150,7 @@ async function createPayPalOrder(opts: {
           }],
         }],
         application_context: {
-          brand_name: "AdAudit",
+          brand_name: "Audit Form",
           user_action: "PAY_NOW",
           shipping_preference: "NO_SHIPPING",
           return_url: `${opts.origin}/api/billing/paypal/verify?payment=${opts.paymentId}`,
@@ -198,7 +198,7 @@ async function createStripeCheckout(opts: {
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", "usd");
   params.set("line_items[0][price_data][unit_amount]", String(Math.round(opts.priceUsd * 100)));
-  params.set("line_items[0][price_data][product_data][name]", `AdAudit ${opts.planName} plan`);
+  params.set("line_items[0][price_data][product_data][name]", `Audit Form ${opts.planName} plan`);
   params.set("line_items[0][price_data][product_data][description]", `${opts.credits.toLocaleString()} audit credits, one-time purchase`);
 
   try {

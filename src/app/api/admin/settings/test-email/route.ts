@@ -33,12 +33,12 @@ export async function POST(req: NextRequest) {
     await transporter.sendMail({
       from: smtp.from || smtp.user,
       to: parsed.data.to,
-      subject: "AdAudit test email",
-      text: `This is a test email from your AdAudit SMTP settings. If you are reading this, outgoing email works.\n\nSent ${new Date().toISOString()}`,
+      subject: "Audit Form test email",
+      text: `This is a test email from your Audit Form SMTP settings. If you are reading this, outgoing email works.\n\nSent ${new Date().toISOString()}`,
       html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1b2620">
         <div style="border:1px solid #e2e8e4;border-radius:6px;padding:24px">
           <p style="margin:0 0 12px;font-size:18px;font-weight:bold">SMTP is working</p>
-          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#5d6b64">This test email was sent from your AdAudit SMTP settings. Payment receipts, support replies and the weekly monitoring digest will all deliver through this connection.</p>
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#5d6b64">This test email was sent from your Audit Form SMTP settings. Payment receipts, support replies and the weekly monitoring digest will all deliver through this connection.</p>
           <p style="margin:0;font-size:12px;color:#93a39a">Sent ${new Date().toISOString()}</p>
         </div>
       </div>`,

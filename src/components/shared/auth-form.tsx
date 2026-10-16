@@ -8,6 +8,7 @@ import { signIn } from "next-auth/react";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
+import { Illustration } from "@/components/shared/illustration";
 
 function GoogleButton({ label }: { label: string }) {
   return (
@@ -92,7 +93,7 @@ function RegisterForm() {
           placeholder="8+ characters" />
         <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-muted-foreground">
           <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-input accent-[#0d6b4d]" />
+            className="mt-0.5 h-4 w-4 rounded border-input accent-[#f86642]" />
           <span>
             I agree to the <Link href="/terms" className="font-semibold text-primary hover:underline" target="_blank">Terms of Service</Link>{" "}
             and the <Link href="/privacy" className="font-semibold text-primary hover:underline" target="_blank">Privacy Policy</Link>.
@@ -193,17 +194,17 @@ function LoginForm() {
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
-    <div className="dotgrid min-h-[calc(100vh-4rem)]">
+    <div className="bg-band min-h-[calc(100vh-4rem)]">
       <div className="mx-auto grid max-w-5xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
         <div className="hidden justify-center lg:flex">
           <div className="w-full max-w-sm">
-            <div className="overflow-hidden rounded-lg border border-border">
-              <Image src="/illustrations/auth.png" alt="Sign in to AdAudit" width={864} height={1152} className="h-auto w-full bg-card" />
+            <div className="overflow-hidden rounded-lg">
+              <Illustration name="report" alt="Character carrying an audit report" loading="eager" />
             </div>
             <ul className="mt-5 space-y-2.5">
               {["Free credits the moment you sign up", "Reports saved as clean PDFs", "Cancel-free, one-time plans"].map((t) => (
-                <li key={t} className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <CircleCheck className="h-4.5 w-4.5 shrink-0 text-ok" /> {t}
+                <li key={t} className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <CircleCheck className="h-4.5 w-4.5 shrink-0 text-primary" /> {t}
                 </li>
               ))}
             </ul>

@@ -6,7 +6,7 @@ import type { AuditReport } from "@/lib/audit-runner";
 
 export const metadata: Metadata = {
   title: "Sample audit report",
-  description: "A complete example of an AdAudit report: approval probability, color-coded findings, strengths, risks, critical fixes and a fix-first roadmap.",
+  description: "A complete example of an Audit Form report: approval probability, color-coded findings, strengths, risks, critical fixes and a fix-first roadmap.",
 };
 
 // Illustrative example aligned with the homepage mockup. The domain is fictional.
@@ -135,7 +135,7 @@ export default function SampleReportPage() {
           This is exactly what you get before you apply
         </h1>
         <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
-          Below is a complete AdAudit report for a fictional gardening blog. Every real report looks like
+          Below is a complete Audit Form report for a fictional gardening blog. Every real report looks like
           this: an approval probability, findings in green, orange and red, and a fix list ordered by what
           moves the needle first. The example site has real strengths and real problems, because a useful
           report tells you both.

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const secret = totpSecret();
-  const otpauth = totpKeyuri(user.email, "AdAudit", secret);
+  const otpauth = totpKeyuri(user.email, "Audit Form", secret);
   const qr = await QRCode.toDataURL(otpauth, { margin: 1, width: 220, color: { dark: "#1b2620", light: "#ffffff" } });
 
   // store temporarily (not enabled until verified)

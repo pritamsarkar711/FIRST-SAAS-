@@ -39,10 +39,10 @@ function scoreWord(score: number | null): string {
 function buildHtml(rows: WatchRow[], siteName: string): string {
   const list = rows
     .map((r) => {
-      const color = r.lastScore === null ? "#6b7280" : r.lastScore >= 70 ? "#0d6b4d" : r.lastScore >= 45 ? "#b45309" : "#b91c1c";
+      const color = r.lastScore === null ? "#6b7280" : r.lastScore >= 70 ? "#1f7a55" : r.lastScore >= 45 ? "#b45309" : "#b91c1c";
       const state = r.active ? `next check ${fmtIn(r.nextRunAt.getTime() - Date.now())}` : "paused";
       const note = r.pausedReason ? `<br/><span style="color:#b45309">${r.pausedReason}</span>` : "";
-      const deep = r.deepScan ? ` <span style="color:#0d6b4d;font-weight:700">· deep scan</span>` : "";
+      const deep = r.deepScan ? ` <span style="color:#1f7a55;font-weight:700">· deep scan</span>` : "";
       return `<tr>
   <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">
     <strong>${r.domain}</strong><br/>
@@ -97,7 +97,7 @@ export async function maybeSendDigests(opts: { force?: boolean } = {}): Promise<
     return { sent: 0, skipped: "SMTP is not configured, so no email could be sent.", enabled: true };
   }
 
-  const site = await getSetting("site", { name: "AdAudit" });
+  const site = await getSetting("site", { name: "Audit Form" });
   const nodemailer = await import("nodemailer").catch(() => null);
   if (!nodemailer) return { sent: 0, skipped: "Mailer unavailable on this host.", enabled: true };
   const transport = nodemailer.createTransport({
@@ -128,13 +128,13 @@ export async function maybeSendDigests(opts: { force?: boolean } = {}): Promise<
       pausedReason: w.pausedReason,
     }));
     if (rows.length === 0) continue;
-    const html = buildHtml(rows, site.name || "AdAudit");
+    const html = buildHtml(rows, site.name || "Audit Form");
     try {
       await transport.sendMail({
         from: smtp.from || smtp.user,
         to: user.email,
-        subject: `${site.name || "AdAudit"} weekly monitoring digest (${rows.length} domain${rows.length === 1 ? "" : "s"})`,
-        text: buildText(rows, site.name || "AdAudit"),
+        subject: `${site.name || "Audit Form"} weekly monitoring digest (${rows.length} domain${rows.length === 1 ? "" : "s"})`,
+        text: buildText(rows, site.name || "Audit Form"),
         html,
       });
       sent += 1;

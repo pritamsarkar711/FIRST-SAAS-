@@ -508,7 +508,7 @@ export function AuditWorkspace({
         </div>
         {history.length === 0 ? (
           <EmptyState
-            image="/illustrations/audit.png"
+            image="audit-desk"
             title="No audits yet"
             body="Your first audit takes about two minutes: pick a domain, choose a mode, and the engine does the rest."
             cta="Run your first audit"
