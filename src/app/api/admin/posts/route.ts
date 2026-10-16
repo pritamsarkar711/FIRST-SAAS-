@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();
@@ -53,9 +54,15 @@ export async function POST(req: NextRequest) {
       where: { id: d.id },
       data: { ...data, publishedAt: existing.publishedAt ?? data.publishedAt },
     });
+    if (d.status === "PUBLISHED") {
+      logActivity({ action: "BLOG_PUBLISH", actorEmail: admin.email, detail: `Updated post: ${d.title}` });
+    }
     return NextResponse.json({ ok: true, id: d.id });
   }
   const post = await db.blogPost.create({ data: { ...data, authorId: admin.id } });
+  if (d.status === "PUBLISHED") {
+    logActivity({ action: "BLOG_PUBLISH", actorEmail: admin.email, detail: `Published post: ${d.title}` });
+  }
   return NextResponse.json({ ok: true, id: post.id });
 }
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/credits";
 import { siteSettings } from "@/lib/settings";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const session = await auth();
@@ -74,6 +75,14 @@ export async function POST(req: NextRequest) {
 
   await db.withdrawal.create({
     data: { userId: user.id, amount: parsed.data.amount, method: parsed.data.method, account: parsed.data.account, status: "PENDING" },
+  });
+
+  logActivity({
+    action: "WITHDRAW_REQUEST",
+    actorEmail: session.user.email,
+    userId: user.id,
+    detail: `$${parsed.data.amount.toFixed(2)} via ${parsed.data.method}`,
+    ip: clientIp(req),
   });
 
   return NextResponse.json({ ok: true, message: "Withdrawal requested. Payouts are processed within 3 business days." });

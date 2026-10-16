@@ -3,14 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins } from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScoreRing, VerdictBadge, StatusIcon } from "@/components/shared/report-ui";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
-interface StartResponse { ok?: boolean; id?: string; error?: string; needCredits?: number }
+interface StartResponse {
+  ok?: boolean; id?: string; batchId?: string | null; error?: string; needCredits?: number;
+  audits?: { id: string; domain: string }[]; invalid?: string[];
+}
+interface HistoryItem {
+  id: string; domain: string; target: string; mode: string; status: string;
+  probability: number; verdict: string | null; batchId: string | null; createdAt: string;
+}
+interface BatchRow { id: string; domain: string; status: string; probability: number; verdict: string | null; error: string | null }
 
 const NETWORKS = [
   { value: "ADSENSE", label: "Google AdSense" },
@@ -24,6 +32,8 @@ const MODES = [
   { value: "STANDARD", title: "Standard", desc: "Recommended. Strong model, deep policy review.", badge: "Best value" },
   { value: "PREMIUM", title: "Premium", desc: "Top-tier frontier model. Maximum depth and findings.", badge: null },
 ];
+
+const MAX_BATCH = 10;
 
 interface PollState {
   id?: string;
@@ -41,27 +51,36 @@ export function AuditWorkspace({
 }: {
   costs: { normal: number; standard: number; premium: number };
   credits: number;
-  history: { id: string; domain: string; target: string; mode: string; status: string; probability: number; verdict: string | null; createdAt: string }[];
+  history: HistoryItem[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [tab, setTab] = useState<"single" | "batch">("single");
   const [domain, setDomain] = useState(params.get("domain") || "");
+  const [batchInput, setBatchInput] = useState("");
+  const [invalidDomains, setInvalidDomains] = useState<string[]>([]);
   const [network, setNetwork] = useState(params.get("network") || "ADSENSE");
   const [mode, setMode] = useState("STANDARD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [poll, setPoll] = useState<PollState | null>(null);
+  const [batch, setBatch] = useState<{ batchId: string; rows: BatchRow[] } | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const batchRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autostart = params.get("autostart") === "1";
   const startedRef = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (batchRef.current) { clearInterval(batchRef.current); batchRef.current = null; }
   }, []);
+
+  const modeCost = costs[mode.toLowerCase() as "normal" | "standard" | "premium"];
 
   const startAudit = useCallback(async (d: string, n: string, m: string) => {
     setError("");
     setBusy(true);
+    setBatch(null);
     setPoll({ status: "PENDING", domain: d });
     try {
       const res = await fetch("/api/audit", {
@@ -102,6 +121,79 @@ export function AuditWorkspace({
     }
   }, [credits, router, stopPolling]);
 
+  const parsedBatchDomains = batchInput
+    .split(/[\n,]/)
+    .map((s) => s.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase())
+    .filter(Boolean);
+  const uniqueBatch = Array.from(new Set(parsedBatchDomains)).slice(0, MAX_BATCH);
+  const batchCost = uniqueBatch.length * modeCost;
+
+  const startBatch = useCallback(async (domains: string[], n: string, m: string) => {
+    setError("");
+    setInvalidDomains([]);
+    setBusy(true);
+    setPoll(null);
+    try {
+      const res = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains, network: n, mode: m }),
+      });
+      const data: StartResponse = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 402) {
+          setError(`${data.error} You have ${credits} credits. Top up on the billing page.`);
+        } else {
+          setError(data.error || "Could not start the batch.");
+          if (data.invalid) setInvalidDomains(data.invalid);
+        }
+        return;
+      }
+      if (data.invalid?.length) setInvalidDomains(data.invalid);
+      const first = data.audits?.[0];
+      if (!data.batchId && first) {
+        // Single-domain run: reuse the single progress panel and poller.
+        setPoll({ status: "PENDING", domain: first.domain, id: first.id });
+        pollRef.current = setInterval(async () => {
+          try {
+            const r = await fetch(`/api/audit/${first.id}`);
+            const a = await r.json();
+            if (a.status === "DONE" || a.status === "FAILED") {
+              stopPolling();
+              setPoll({ id: first.id, status: a.status, probability: a.probability, verdict: a.verdict, error: a.error, domain: a.domain });
+              if (a.status === "DONE") router.refresh();
+            } else {
+              setPoll((p) => (p ? { ...p, status: a.status } : p));
+            }
+          } catch { /* keep polling */ }
+        }, 3000);
+        return;
+      }
+      const initial: BatchRow[] = (data.audits || []).map((a) => ({ id: a.id, domain: a.domain, status: "PENDING", probability: 0, verdict: null, error: null }));
+      const bid = data.batchId!;
+      setBatch({ batchId: bid, rows: initial });
+      const fetchBatch = async () => {
+        try {
+          const r = await fetch(`/api/audit?batch=${encodeURIComponent(bid)}`);
+          if (!r.ok) return;
+          const d = await r.json();
+          const rows: BatchRow[] = d.audits || [];
+          setBatch({ batchId: bid, rows });
+          if (rows.length > 0 && rows.every((x) => x.status === "DONE" || x.status === "FAILED")) {
+            if (batchRef.current) { clearInterval(batchRef.current); batchRef.current = null; }
+            router.refresh();
+          }
+        } catch { /* keep polling */ }
+      };
+      await fetchBatch();
+      batchRef.current = setInterval(fetchBatch, 4000);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [credits, router]);
+
   useEffect(() => {
     if (autostart && domain && !startedRef.current) {
       startedRef.current = true;
@@ -112,6 +204,14 @@ export function AuditWorkspace({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (tab === "batch") {
+      if (uniqueBatch.length === 0) {
+        setError("Enter at least one domain, one per line.");
+        return;
+      }
+      await startBatch(uniqueBatch, network, mode);
+      return;
+    }
     const d = domain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(d)) {
       setError("Enter a valid domain, for example myblog.com");
@@ -120,25 +220,61 @@ export function AuditWorkspace({
     await startAudit(d, network, mode);
   }
 
-  const cost = costs[mode.toLowerCase() as "normal" | "standard" | "premium"];
-  const enough = credits >= cost;
+  const enough = tab === "batch" ? credits >= batchCost : credits >= modeCost;
+  const displayCost = tab === "batch" ? batchCost : modeCost;
 
   return (
     <div className="space-y-8">
       {/* Form card */}
       <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 sm:p-6">
-        <h1 className="text-lg font-bold text-foreground">New site audit</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Crawls your real site, then reviews it for {NETWORKS.find((n) => n.value === network)?.label} readiness.</p>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-[1fr_180px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <label htmlFor="a-domain" className="mb-1.5 block text-sm font-semibold text-foreground">Your domain</label>
-            <input
-              id="a-domain" type="text" inputMode="url" value={domain} onChange={(e) => setDomain(e.target.value)}
-              placeholder="yourblog.com" autoComplete="url"
-              className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <h1 className="text-lg font-bold text-foreground">New site audit</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Crawls your real site, then reviews it for {NETWORKS.find((n) => n.value === network)?.label} readiness.</p>
           </div>
+          <div className="flex rounded-md border border-border p-0.5" role="tablist" aria-label="Audit input mode">
+            {(["single", "batch"] as const).map((t) => (
+              <button
+                key={t} type="button" role="tab" aria-selected={tab === t}
+                onClick={() => { setTab(t); setError(""); }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-bold transition-colors",
+                  tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t === "batch" && <Layers className="h-3.5 w-3.5" />}
+                {t === "single" ? "Single site" : `Batch (up to ${MAX_BATCH})`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={cn("mt-5 grid gap-4", tab === "single" && "md:grid-cols-[1fr_180px]")}>
+          {tab === "single" ? (
+            <div>
+              <label htmlFor="a-domain" className="mb-1.5 block text-sm font-semibold text-foreground">Your domain</label>
+              <input
+                id="a-domain" type="text" inputMode="url" value={domain} onChange={(e) => setDomain(e.target.value)}
+                placeholder="yourblog.com" autoComplete="url"
+                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="a-batch" className="mb-1.5 block text-sm font-semibold text-foreground">
+                Domains <span className="font-normal text-muted-foreground">(one per line, max {MAX_BATCH})</span>
+              </label>
+              <textarea
+                id="a-batch" rows={5} value={batchInput}
+                onChange={(e) => setBatchInput(e.target.value)}
+                placeholder={"siteone.com\nsitetwo.com\nsitethree.com"}
+                className="w-full resize-y rounded-md border border-input bg-card px-3 py-2.5 font-mono text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              {parsedBatchDomains.length > MAX_BATCH && (
+                <p className="mt-1.5 text-xs font-semibold text-warn">Only the first {MAX_BATCH} domains will run.</p>
+              )}
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-foreground">Ad network</label>
             <Select value={network} onValueChange={setNetwork}>
@@ -173,21 +309,72 @@ export function AuditWorkspace({
         {error && <p className="mt-4 rounded-md bg-risk-soft px-3 py-2.5 text-sm font-medium text-risk" role="alert">
           {error} {error.includes("credits") && <Link href="/dashboard/billing" className="underline font-bold">Buy credits</Link>}
         </p>}
+        {invalidDomains.length > 0 && (
+          <p className="mt-2 rounded-md bg-warn-soft px-3 py-2.5 text-sm font-medium text-warn" role="alert">
+            Skipped (unreachable or invalid): {invalidDomains.join(", ")}
+          </p>
+        )}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
+            {tab === "batch" && uniqueBatch.length > 0 && (
+              <span className="font-semibold text-foreground">{uniqueBatch.length} {uniqueBatch.length === 1 ? "site" : "sites"} × {modeCost} = </span>
+            )}
             Balance: <span className="font-bold text-foreground">{credits.toLocaleString()}</span> credits
-            {!enough && <span className="ml-1 font-semibold text-risk">(need {cost})</span>}
+            {!enough && <span className="ml-1 font-semibold text-risk">(need {displayCost})</span>}
           </p>
           <Button type="submit" disabled={busy || !enough} className="h-11 rounded-md px-6 font-semibold">
-            <SearchCheck className="mr-2 h-4.5 w-4.5" /> {busy ? "Starting..." : "Run audit"}
+            <SearchCheck className="mr-2 h-4.5 w-4.5" />
+            {busy ? "Starting..." : tab === "batch" ? `Run ${uniqueBatch.length || ""} ${uniqueBatch.length === 1 ? "audit" : "audits"}` : "Run audit"}
           </Button>
         </div>
       </form>
 
-      {/* Live progress */}
+      {/* Live batch progress */}
+      {batch && (
+        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6" aria-live="polite">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Layers className="h-5 w-5 text-primary" />
+              <p className="font-bold text-foreground">Batch of {batch.rows.length}</p>
+            </div>
+            <BatchCounter rows={batch.rows} />
+          </div>
+          <ol className="mt-4 divide-y divide-border overflow-hidden rounded-md border border-border">
+            {batch.rows.map((row, i) => (
+              <li key={row.id} className="flex items-center gap-3 bg-card px-4 py-3">
+                <span className="w-6 text-xs font-bold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+                <div className="min-w-0 flex-1">
+                  {row.status === "DONE" ? (
+                    <Link href={`/dashboard/audit/${row.id}`} className="truncate font-semibold text-foreground hover:text-primary">{row.domain}</Link>
+                  ) : (
+                    <span className="truncate font-semibold text-foreground">{row.domain}</span>
+                  )}
+                  {row.status === "FAILED" && row.error && <p className="mt-0.5 truncate text-xs text-risk">{row.error}</p>}
+                </div>
+                {row.status === "DONE" && (
+                  <span className={cn(
+                    "rounded-sm px-2 py-1 text-xs font-bold",
+                    row.probability >= 70 ? "bg-ok-soft text-ok" : row.probability >= 45 ? "bg-warn-soft text-warn" : "bg-risk-soft text-risk"
+                  )}>
+                    {row.probability}%
+                  </span>
+                )}
+                <RowStatus status={row.status} />
+              </li>
+            ))}
+          </ol>
+          {batch.rows.every((r) => r.status === "DONE" || r.status === "FAILED") && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Batch finished. Reports stay in your audit history, and each one can be downloaded as a PDF.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Live single progress */}
       {poll && (
-        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6">
+        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6" aria-live="polite">
           {poll.status === "FAILED" ? (
             <div>
               <div className="flex items-center gap-2.5">
@@ -235,16 +422,30 @@ export function AuditWorkspace({
               {history.map((h) => (
                 <li key={h.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/dashboard/audit/${h.id}`} className="font-semibold text-foreground hover:text-primary">
-                      {h.domain}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/dashboard/audit/${h.id}`} className="font-semibold text-foreground hover:text-primary">
+                        {h.domain}
+                      </Link>
+                      {h.batchId && <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">Batch</span>}
+                    </div>
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                       <span>{networkLabel(h.target)}</span>
                       <span>{h.mode.charAt(0) + h.mode.slice(1).toLowerCase()} mode</span>
                       <span>{new Date(h.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {(h.status === "DONE" || h.status === "FAILED") && (
+                      <button
+                        type="button"
+                        onClick={() => { setTab("single"); setDomain(h.domain); setNetwork(h.target); setMode(h.mode); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        title={`Run ${h.domain} again`}
+                        aria-label={`Run ${h.domain} again with the same settings`}
+                      >
+                        <RotateCw className="h-3.5 w-3.5" /> Re-run
+                      </button>
+                    )}
                     {h.status === "DONE" && (
                       <>
                         <span className={cn(
@@ -274,6 +475,23 @@ export function AuditWorkspace({
 function networkLabel(code: string): string {
   const map: Record<string, string> = { ADSENSE: "Google AdSense", EZOIC: "Ezoic", MEDIAVINE: "Mediavine", RAPTIVE: "Raptive" };
   return map[code] || code;
+}
+
+function BatchCounter({ rows }: { rows: BatchRow[] }) {
+  const failed = rows.filter((r) => r.status === "FAILED").length;
+  const finished = rows.filter((r) => r.status === "DONE" || r.status === "FAILED").length;
+  return (
+    <p className="text-sm text-muted-foreground">
+      <span className="font-bold text-foreground">{finished}/{rows.length}</span> done
+      {failed > 0 && <span className="ml-2 font-semibold text-risk">{failed} failed</span>}
+    </p>
+  );
+}
+
+function RowStatus({ status }: { status: string }) {
+  if (status === "DONE") return <CircleCheck className="h-5 w-5 shrink-0 text-ok" aria-label="Completed" />;
+  if (status === "FAILED") return <CircleX className="h-5 w-5 shrink-0 text-risk" aria-label="Failed" />;
+  return <StatusIcon status="pending" className="h-5 w-5 shrink-0" aria-label="In progress" />;
 }
 
 function AuditProgress({ status, domain }: { status: string; domain: string }) {

@@ -57,11 +57,27 @@ model Audit {
   error       String?
   creditsUsed Int      @default(0)
   shareToken  String?  @unique
+  batchId     String? // groups audits started together as one batch
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId, createdAt])
   @@index([domain, createdAt])
+  @@index([batchId])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String? // subject user, when applicable
+  actorEmail String // who performed the action (user or admin email)
+  action     String // e.g. AUTH_LOGIN, AUDIT_START, PAYMENT_APPROVE
+  detail     String? // human readable context
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorEmail, createdAt])
 }
 
 model Notification {

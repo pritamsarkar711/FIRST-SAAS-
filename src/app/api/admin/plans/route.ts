@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -24,7 +25,7 @@ const planSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { user: admin, error } = await requireAdmin();
   if (error) return error;
   const parsed = planSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid plan data." }, { status: 400 });
@@ -37,8 +38,10 @@ export async function POST(req: NextRequest) {
 
   if (d.id) {
     await db.plan.update({ where: { id: d.id }, data });
+    logActivity({ action: "PLAN_SAVE", actorEmail: admin.email, detail: `Updated plan ${d.name} ($${d.priceUsd} / ${d.credits} credits)` });
   } else {
     await db.plan.create({ data });
+    logActivity({ action: "PLAN_SAVE", actorEmail: admin.email, detail: `Created plan ${d.name} ($${d.priceUsd} / ${d.credits} credits)` });
   }
   return NextResponse.json({ ok: true });
 }

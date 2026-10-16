@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { runWriter, parseLinks } from "@/lib/writer-runner";
 import { getCosts, deductCredits, rateLimit, clientIp } from "@/lib/credits";
+import { logActivity } from "@/lib/activity";
 
 const schema = z.object({
   type: z.enum(["ADSENSE", "AFFILIATE"]),
@@ -63,5 +64,12 @@ export async function POST(req: NextRequest) {
   });
 
   void runWriter(job.id).catch(() => {});
+  logActivity({
+    action: "WRITER_START",
+    actorEmail: user.email,
+    userId: user.id,
+    detail: `${d.type.toLowerCase()} article · "${d.keyword}" · ${d.mode.toLowerCase()} · ${d.words} words`,
+    ip: clientIp(req),
+  });
   return NextResponse.json({ ok: true, id: job.id, creditsUsed });
 }

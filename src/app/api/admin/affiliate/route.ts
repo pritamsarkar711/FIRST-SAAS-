@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { notify } from "@/lib/notify";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -29,7 +30,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { user: admin, error } = await requireAdmin();
   if (error) return error;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
     const { siteSettings } = await import("@/lib/settings");
     const site = await siteSettings();
     await import("@/lib/settings").then((m) => m.setSetting("site", { ...site, affiliateRate: parsed.data.rate }));
+    logActivity({
+      action: "SETTINGS_SAVE",
+      actorEmail: admin.email,
+      detail: `Affiliate commission rate set to ${parsed.data.rate}% (was ${site.affiliateRate}%)`,
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -45,6 +51,8 @@ export async function POST(req: NextRequest) {
     const w = await db.withdrawal.findUnique({ where: { id: parsed.data.id } });
     if (!w) return NextResponse.json({ error: "Withdrawal not found." }, { status: 404 });
     const decision = parsed.data.decision;
+    const log = (action: Parameters<typeof logActivity>[0]["action"], title: string) =>
+      logActivity({ action, actorEmail: admin.email, userId: w.userId, detail: `$${w.amount.toFixed(2)} via ${w.method} to ${w.account} · ${title}` });
     if (decision === "reject") {
       // Return the money to cleared balance
       await db.affiliateEarning.create({
@@ -52,12 +60,15 @@ export async function POST(req: NextRequest) {
       });
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "REJECTED", reviewedAt: new Date() } });
       await notify(w.userId, "WITHDRAWAL", "Withdrawal rejected", `Your $${w.amount.toFixed(2)} withdrawal was rejected and the amount was returned to your cleared balance.`, "/dashboard/affiliate");
+      log("WITHDRAW_REJECT", "rejected");
     } else if (parsed.data.decision === "approve") {
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "PROCESSING", reviewedAt: new Date() } });
       await notify(w.userId, "WITHDRAWAL", "Withdrawal processing", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} is being processed. Payouts arrive within 3 business days.`, "/dashboard/affiliate");
+      log("WITHDRAW_APPROVE", "approved");
     } else {
       await db.withdrawal.update({ where: { id: w.id }, data: { status: "COMPLETED", reviewedAt: new Date() } });
       await notify(w.userId, "WITHDRAWAL", "Withdrawal paid", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} has been sent to ${w.account}.`, "/dashboard/affiliate");
+      log("WITHDRAW_COMPLETE", "completed");
     }
     return NextResponse.json({ ok: true });
   }

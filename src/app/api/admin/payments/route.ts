@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { addCredits } from "@/lib/credits";
 import { siteSettings } from "@/lib/settings";
 import { notify } from "@/lib/notify";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -24,7 +25,7 @@ const actionSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { user: admin, error } = await requireAdmin();
   if (error) return error;
   const parsed = actionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
@@ -66,6 +67,12 @@ export async function POST(req: NextRequest) {
       `Your ${payment.planName} plan payment was verified and ${credits} credits were added to your balance.`,
       "/dashboard/billing"
     );
+    logActivity({
+      action: "PAYMENT_APPROVE",
+      actorEmail: admin.email,
+      userId: payment.userId,
+      detail: `${payment.planName} · $${payment.amount.toFixed(2)} · ${payment.gateway} · +${credits} credits`,
+    });
     return NextResponse.json({ ok: true, message: `Approved. ${credits} credits added.` });
   }
 
@@ -77,5 +84,11 @@ export async function POST(req: NextRequest) {
     `Your ${payment.planName} order was rejected. ${parsed.data.note ? "Reason: " + parsed.data.note : "Contact support if you believe this is a mistake."}`,
     "/dashboard/billing"
   );
+  logActivity({
+    action: "PAYMENT_REJECT",
+    actorEmail: admin.email,
+    userId: payment.userId,
+    detail: `${payment.planName} · $${payment.amount.toFixed(2)} · ${payment.gateway}${parsed.data.note ? " · " + parsed.data.note : ""}`,
+  });
   return NextResponse.json({ ok: true, message: "Payment rejected." });
 }

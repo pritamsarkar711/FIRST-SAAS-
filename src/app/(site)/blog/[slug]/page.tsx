@@ -13,6 +13,12 @@ async function getPost(slug: string) {
   return post;
 }
 
+function readingMinutes(html: string): number {
+  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const words = text ? text.split(" ").length : 0;
+  return Math.max(1, Math.round(words / 220));
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
@@ -20,6 +26,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: post.metaTitle || post.title,
     description: post.metaDescription || post.excerpt || undefined,
+    openGraph: {
+      title: post.metaTitle || post.title,
+      description: post.metaDescription || post.excerpt || undefined,
+      type: "article",
+      publishedTime: post.publishedAt?.toISOString(),
+    },
   };
 }
 
@@ -30,8 +42,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   await db.blogPost.update({ where: { id: post.id }, data: { views: { increment: 1 } } }).catch(() => {});
 
+  const minutes = readingMinutes(post.content);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.metaDescription || post.excerpt || undefined,
+    datePublished: post.publishedAt?.toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    author: { "@type": "Person", name: post.author.name || "AdAudit Team" },
+    publisher: { "@type": "Organization", name: "AdAudit" },
+    mainEntityOfPage: post.slug,
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className={post.coverImage ? "relative h-64 w-full border-b border-border sm:h-80" : "border-b border-border bg-secondary/60"}>
         {post.coverImage ? (
           <Image src={post.coverImage} alt={post.title} fill priority sizes="100vw" className="object-cover" />
@@ -52,6 +78,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <span>{post.author.name || "AdAudit Team"}</span>
           <span aria-hidden="true">·</span>
           <span>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}</span>
+          <span aria-hidden="true">·</span>
+          <span>{minutes} min read</span>
           <span aria-hidden="true">·</span>
           <span>{post.views.toLocaleString()} views</span>
         </p>

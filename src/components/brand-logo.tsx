@@ -33,10 +33,12 @@ export function BrandLogo({
       </span>
     );
   }
+  // v=2: brand assets were replaced with real logo files; bust any cached copies.
+  const bust = src.includes("?") ? src : `${src}?v=3`;
   return (
 
     <img
-      src={src}
+      src={bust}
       alt={`${name} logo`}
       width={size * 2.2}
       height={size * 1.15}

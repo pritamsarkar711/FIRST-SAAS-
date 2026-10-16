@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -19,7 +20,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { user: admin, error } = await requireAdmin();
   if (error) return error;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid gateway data." }, { status: 400 });
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
   await db.gatewayConfig.update({
     where: { id },
     data: { ...rest, ...(config !== undefined ? { config } : {}) },
+  });
+  logActivity({
+    action: "GATEWAY_SAVE",
+    actorEmail: admin.email,
+    detail: `${rest.name ?? id} · ${rest.enabled === true ? "enabled" : rest.enabled === false ? "disabled" : "updated"}`,
   });
   return NextResponse.json({ ok: true });
 }

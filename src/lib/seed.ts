@@ -88,11 +88,12 @@ async function seed(): Promise<void> {
   for (const p of PLANS) {
     await db.plan.upsert({ where: { slug: p.slug }, update: {}, create: p });
   }
+  const PNG_GATEWAYS = new Set(["bkash", "nagad", "rocket", "upay", "sslcommerz", "shurjopay", "aamarpay", "mediavine", "raptive", "ezoic", "paddle"]);
   for (const g of GATEWAYS) {
     await db.gatewayConfig.upsert({
       where: { code: g.code },
       update: {},
-      create: { code: g.code, name: g.name, mode: g.mode, instructions: g.instructions, sortOrder: g.sortOrder, logo: `/logos/${g.code}.svg` },
+      create: { code: g.code, name: g.name, mode: g.mode, instructions: g.instructions, sortOrder: g.sortOrder, logo: `/logos/${g.code}.${PNG_GATEWAYS.has(g.code) ? "png" : "svg"}` },
     });
   }
   // Enable the three most-used manual rails by default (no API keys needed)

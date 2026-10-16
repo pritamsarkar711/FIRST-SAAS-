@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, ShieldCheck, UserRound, CircleCheck, QrCode } from "lucide-react";
+import { KeyRound, ShieldCheck, UserRound, CircleCheck, QrCode, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useInitialFetch } from "@/lib/use-initial-fetch";
+
+interface SecurityEvent { id: string; label: string; detail: string | null; ip: string | null; createdAt: string }
 
 export function SettingsWorkspace({ user }: { user: { name: string; email: string; twoFactorEnabled: boolean } }) {
   const router = useRouter();
@@ -128,8 +131,9 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
             <p className="text-sm leading-relaxed text-muted-foreground">
               Scan this QR with Google Authenticator, Authy or 1Password. Then enter the 6 digit code to finish.
             </p>
-            { }
-            <img src={qr} alt="Two factor QR code" width={180} height={180} className="mt-3 rounded-md border border-border" />
+            {qr && (
+              <img src={qr} alt="Two factor QR code" width={180} height={180} className="mt-3 rounded-md border border-border" />
+            )}
             {secret && <code className="mt-2 block truncate rounded-sm bg-secondary px-3 py-2 text-xs">{secret}</code>}
             <form onSubmit={enable2fa} className="mt-3 flex gap-2">
               <Input type="text" placeholder="000000" value={code} onChange={(e) => setCode(e.target.value)} className="h-11 w-40 rounded-md tracking-[0.3em]" maxLength={6} inputMode="numeric" />
@@ -150,6 +154,59 @@ export function SettingsWorkspace({ user }: { user: { name: string; email: strin
           </div>
         )}
       </div>
+
+      <RecentActivity />
+    </div>
+  );
+}
+
+function RecentActivity() {
+  const [events, setEvents] = useState<SecurityEvent[] | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/security");
+      if (res.ok) {
+        const d = await res.json();
+        setEvents(d.events || []);
+      } else {
+        setEvents([]);
+      }
+    } catch {
+      setEvents([]);
+    }
+  }, []);
+  useInitialFetch(load);
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 font-bold text-foreground"><Fingerprint className="h-4.5 w-4.5 text-primary" /> Recent account activity</h2>
+      <p className="mt-1 text-sm text-muted-foreground">The latest security events on your account. If something here looks wrong, change your password and turn on two factor authentication.</p>
+      {events === null ? (
+        <div className="mt-4 space-y-2">
+          {[0, 1, 2].map((i) => <div key={i} className="h-11 animate-pulse rounded-md bg-muted" />)}
+        </div>
+      ) : events.length === 0 ? (
+        <p className="mt-4 rounded-md bg-secondary px-3 py-2.5 text-sm text-muted-foreground">Nothing logged yet. Events appear as you sign in, run audits and order credits.</p>
+      ) : (
+        <ul className="mt-4 max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border">
+          {events.map((e) => (
+            <li key={e.id} className="flex items-center gap-3 px-3.5 py-2.5">
+              <span className={cn(
+                "h-2 w-2 shrink-0 rounded-full",
+                e.label.includes("failed") ? "bg-risk" : e.label.includes("created") || e.label.includes("on") ? "bg-ok" : "bg-primary/50"
+              )} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{e.label}</p>
+                {e.detail && <p className="truncate text-xs text-muted-foreground">{e.detail}</p>}
+              </div>
+              <div className="whitespace-nowrap text-right text-xs text-muted-foreground">
+                <p>{new Date(e.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                {e.ip && <p className="font-mono">{e.ip}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

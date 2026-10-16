@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hashPassword, randomCode } from "@/lib/password";
 import { ensureSeeded } from "@/lib/seed";
 import { getCosts, rateLimit, clientIp } from "@/lib/credits";
+import { logActivity } from "@/lib/activity";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(60),
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest) {
       referralCode: `AD${randomCode(6)}`,
       referredById,
     },
+  });
+
+  logActivity({
+    action: "AUTH_REGISTER",
+    actorEmail: user.email,
+    userId: user.id,
+    detail: referredById ? "Signed up with a referral code" : "Email sign-up",
+    ip,
   });
 
   return NextResponse.json({ ok: true, email: user.email });

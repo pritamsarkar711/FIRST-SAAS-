@@ -5,6 +5,7 @@ import { createHash, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { getCosts, deductCredits, rateLimit, clientIp } from "@/lib/credits";
 import { assertPublicUrl, normalizeDomain } from "@/lib/guard";
+import { logActivity } from "@/lib/activity";
 
 const schema = z.object({
   domain: z.string().trim().min(4).max(120),
@@ -104,6 +105,13 @@ export async function POST(req: NextRequest) {
   if (submitted === 0) {
     return NextResponse.json({ ok: false, key, keyFileUrl, requestId: row.id, error: errors.join("; ") || "Submission failed." });
   }
+  logActivity({
+    action: "INDEXER_SUBMIT",
+    actorEmail: user.email,
+    userId: user.id,
+    detail: `${submitted} URLs on ${domain}`,
+    ip: clientIp(req),
+  });
   return NextResponse.json({ ok: true, key, keyFileUrl, requestId: row.id, submitted });
 }
 

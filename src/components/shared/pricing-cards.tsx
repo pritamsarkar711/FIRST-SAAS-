@@ -62,6 +62,11 @@ export function PricingCards({ plans, rate }: { plans: PlanCard[]; rate: number 
                 <span className="text-sm text-muted-foreground">one-time</span>
               </div>
               <p className="mt-1.5 text-sm font-semibold text-primary">{p.credits.toLocaleString()} credits</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {currency === "USD"
+                  ? `$${(p.priceUsd / p.credits).toFixed(3)} per credit`
+                  : `৳${(p.priceUsd * rate / p.credits).toFixed(2)} per credit`}
+              </p>
               <ul className="mt-4 flex-1 space-y-2.5">
                 {p.features.map((f, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-foreground">

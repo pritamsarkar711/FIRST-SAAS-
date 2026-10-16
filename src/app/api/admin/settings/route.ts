@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { setSetting, getSetting, SITE_DEFAULTS, AI_DEFAULTS, COSTS_DEFAULTS, GOOGLE_DEFAULTS, SMTP_DEFAULTS } from "@/lib/settings";
 import { AUDIT_PROMPT_DEFAULT, WRITER_PROMPT_DEFAULT, AFFILIATE_PROMPT_DEFAULT } from "@/lib/prompts";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -25,13 +26,14 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { user: admin, error } = await requireAdmin();
   if (error) return error;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
 
   const { key, value } = parsed.data;
   await setSetting(key, value);
+  logActivity({ action: "SETTINGS_SAVE", actorEmail: admin.email, detail: `Updated ${key} settings` });
   return NextResponse.json({ ok: true });
 }
 

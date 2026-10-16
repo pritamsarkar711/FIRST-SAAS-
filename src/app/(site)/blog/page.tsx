@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { db } from "@/lib/db";
 import { LogoMark } from "@/components/logo";
 
@@ -9,6 +9,12 @@ export const metadata = {
   description: "Guides on AdSense approval, low value content fixes, ad network requirements and publisher monetization.",
 };
 export const dynamic = "force-dynamic";
+
+function readingMinutes(html: string): number {
+  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const words = text ? text.split(" ").length : 0;
+  return Math.max(1, Math.round(words / 220));
+}
 
 export default async function BlogListPage() {
   const posts = await db.blogPost.findMany({
@@ -45,8 +51,10 @@ export default async function BlogListPage() {
                 </div>
               )}
               <div className="flex flex-1 flex-col p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
                   {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                  <span aria-hidden="true">·</span>
+                  <span className="inline-flex items-center gap-1 text-muted-foreground"><Clock className="h-3 w-3" /> {readingMinutes(p.content)} min</span>
                 </p>
                 <h2 className="mt-2 font-bold leading-snug text-foreground group-hover:text-primary">{p.title}</h2>
                 <p className="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-muted-foreground">{p.excerpt}</p>

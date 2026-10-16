@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/credits";
 import { getUsdBdt } from "@/lib/settings";
+import { logActivity } from "@/lib/activity";
 
 export async function GET() {
   const session = await auth();
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
       status: "PENDING",
       meta: JSON.stringify({ gatewayName: gw.name, mode: gw.mode }),
     },
+  });
+
+  logActivity({
+    action: "CHECKOUT_SUBMIT",
+    actorEmail: user.email,
+    userId: user.id,
+    detail: `${plan.name} · $${plan.priceUsd.toFixed(2)} via ${gw.name}${parsed.data.txId ? " · TrxID " + parsed.data.txId : ""}`,
+    ip: clientIp(req),
   });
 
   return NextResponse.json({

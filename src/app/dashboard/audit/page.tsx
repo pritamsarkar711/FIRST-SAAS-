@@ -18,7 +18,7 @@ export default async function AuditPage() {
       where: { userId: user!.id },
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { id: true, domain: true, target: true, mode: true, status: true, probability: true, verdict: true, createdAt: true },
+      select: { id: true, domain: true, target: true, mode: true, status: true, probability: true, verdict: true, batchId: true, createdAt: true },
     }),
   ]);
 

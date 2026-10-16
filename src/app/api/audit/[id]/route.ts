@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -37,5 +38,11 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const audit = await db.audit.findUnique({ where: { id } });
   if (!audit || audit.userId !== user.id) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await db.audit.delete({ where: { id } });
+  logActivity({
+    action: "AUDIT_DELETE",
+    actorEmail: session.user.email,
+    userId: user.id,
+    detail: audit.domain,
+  });
   return NextResponse.json({ ok: true });
 }
