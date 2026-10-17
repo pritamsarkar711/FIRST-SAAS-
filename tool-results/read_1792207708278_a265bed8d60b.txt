@@ -1,0 +1,657 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useCallback, useEffect, useRef, useState } from "react";
+     4→     4→import Link from "next/link";
+     5→     5→import { useRouter } from "next/navigation";
+     6→     6→import { CircleCheck, CircleMinus, CircleX, SearchCheck, FileDown, Trash2, Coins, Layers, RotateCw, LineChart, ExternalLink, ScanSearch } from "lucide-react";
+     7→     7→import { Button } from "@/components/ui/button";
+     8→     8→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+     9→     9→import { ScoreRing, VerdictBadge, StatusIcon } from "@/components/shared/report-ui";
+    10→    10→import { EmptyState } from "@/components/shared/empty-state";
+    11→    11→import { cn } from "@/lib/utils";
+    12→    12→
+    13→    13→interface StartResponse {
+    14→    14→  ok?: boolean; id?: string; batchId?: string | null; error?: string; needCredits?: number;
+    15→    15→  audits?: { id: string; domain: string }[]; invalid?: string[];
+    16→    16→}
+    17→    17→interface HistoryItem {
+    18→    18→  id: string; domain: string; target: string; mode: string; deepScan?: boolean; status: string;
+    19→    19→  probability: number; verdict: string | null; batchId: string | null; createdAt: string;
+    20→    20→}
+    21→    21→interface BatchRow { id: string; domain: string; status: string; probability: number; verdict: string | null; error: string | null }
+    22→    22→
+    23→    23→const NETWORKS = [
+    24→    24→  { value: "ADSENSE", label: "Google AdSense" },
+    25→    25→  { value: "EZOIC", label: "Ezoic" },
+    26→    26→  { value: "MEDIAVINE", label: "Mediavine" },
+    27→    27→  { value: "RAPTIVE", label: "Raptive" },
+    28→    28→];
+    29→    29→
+    30→    30→const MODES = [
+    31→    31→  { value: "NORMAL", title: "Normal", desc: "Efficient model, common rules, fastest result.", badge: null as string | null },
+    32→    32→  { value: "STANDARD", title: "Standard", desc: "Recommended. Strong model, deep policy review.", badge: "Best value" },
+    33→    33→  { value: "PREMIUM", title: "Premium", desc: "Top-tier frontier model. Maximum depth and findings.", badge: null },
+    34→    34→];
+    35→    35→
+    36→    36→const MAX_BATCH = 10;
+    37→    37→
+    38→    38→interface PollState {
+    39→    39→  id?: string;
+    40→    40→  status: string;
+    41→    41→  probability?: number;
+    42→    42→  verdict?: string | null;
+    43→    43→  error?: string | null;
+    44→    44→  domain: string;
+    45→    45→}
+    46→    46→
+    47→    47→export function AuditWorkspace({
+    48→    48→  costs,
+    49→    49→  deepCost = 6,
+    50→    50→  credits,
+    51→    51→  history,
+    52→    52→  initialDomain = "",
+    53→    53→  initialNetwork = "ADSENSE",
+    54→    54→  initialDeep = false,
+    55→    55→  autostart = false,
+    56→    56→}: {
+    57→    57→  costs: { normal: number; standard: number; premium: number };
+    58→    58→  deepCost?: number;
+    59→    59→  credits: number;
+    60→    60→  history: HistoryItem[];
+    61→    61→  initialDomain?: string;
+    62→    62→  initialNetwork?: string;
+    63→    63→  initialDeep?: boolean;
+    64→    64→  autostart?: boolean;
+    65→    65→}) {
+    66→    66→  const router = useRouter();
+    67→    67→  const [tab, setTab] = useState<"single" | "batch">("single");
+    68→    68→  const [domain, setDomain] = useState(initialDomain);
+    69→    69→  const [batchInput, setBatchInput] = useState("");
+    70→    70→  const [invalidDomains, setInvalidDomains] = useState<string[]>([]);
+    71→    71→  const [network, setNetwork] = useState(initialNetwork);
+    72→    72→  const [mode, setMode] = useState("STANDARD");
+    73→    73→  const [deepScan, setDeepScan] = useState(initialDeep);
+    74→    74→  const [busy, setBusy] = useState(false);
+    75→    75→  const [error, setError] = useState("");
+    76→    76→  const [poll, setPoll] = useState<PollState | null>(null);
+    77→    77→  const [batch, setBatch] = useState<{ batchId: string; rows: BatchRow[] } | null>(null);
+    78→    78→  const [scoreFilter, setScoreFilter] = useState<"all" | "ready" | "close" | "risk">("all");
+    79→    79→  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    80→    80→  const batchRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    81→    81→  const startedRef = useRef(false);
+    82→    82→
+    83→    83→  const stopPolling = useCallback(() => {
+    84→    84→    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    85→    85→    if (batchRef.current) { clearInterval(batchRef.current); batchRef.current = null; }
+    86→    86→  }, []);
+    87→    87→
+    88→    88→  const modeCost = costs[mode.toLowerCase() as "normal" | "standard" | "premium"];
+    89→    89→  const perAuditCost = modeCost + (deepScan ? deepCost : 0);
+    90→    90→
+    91→    91→  const startAudit = useCallback(async (d: string, n: string, m: string, deep: boolean) => {
+    92→    92→    setError("");
+    93→    93→    setBusy(true);
+    94→    94→    setBatch(null);
+    95→    95→    setPoll({ status: "PENDING", domain: d });
+    96→    96→    try {
+    97→    97→      const res = await fetch("/api/audit", {
+    98→    98→        method: "POST",
+    99→    99→        headers: { "Content-Type": "application/json" },
+   100→   100→        body: JSON.stringify({ domain: d, network: n, mode: m, deepScan: deep }),
+   101→   101→      });
+   102→   102→      const data: StartResponse = await res.json().catch(() => ({}));
+   103→   103→      if (!res.ok) {
+   104→   104→        setPoll(null);
+   105→   105→        if (res.status === 402) {
+   106→   106→          setError(`${data.error} You have ${credits} credits. Top up on the billing page.`);
+   107→   107→        } else {
+   108→   108→          setError(data.error || "Could not start the audit.");
+   109→   109→        }
+   110→   110→        return;
+   111→   111→      }
+   112→   112→      const id = data.id || data.audits?.[0]?.id;
+   113→   113→      if (!id) {
+   114→   114→        setPoll(null);
+   115→   115→        setError("Could not start the audit. Try again.");
+   116→   116→        return;
+   117→   117→      }
+   118→   118→      setPoll({ status: "PENDING", domain: d, id });
+   119→   119→      pollRef.current = setInterval(async () => {
+   120→   120→        try {
+   121→   121→          const r = await fetch(`/api/audit/${id}`);
+   122→   122→          const a = await r.json();
+   123→   123→          if (a.status === "DONE" || a.status === "FAILED") {
+   124→   124→            stopPolling();
+   125→   125→            setPoll({ id, status: a.status, probability: a.probability, verdict: a.verdict, error: a.error, domain: a.domain });
+   126→   126→            if (a.status === "DONE") router.refresh();
+   127→   127→          } else {
+   128→   128→            setPoll((p) => (p ? { ...p, status: a.status } : p));
+   129→   129→          }
+   130→   130→        } catch { /* keep polling */ }
+   131→   131→      }, 3000);
+   132→   132→    } catch {
+   133→   133→      setPoll(null);
+   134→   134→      setError("Network error. Check your connection and try again.");
+   135→   135→    } finally {
+   136→   136→      setBusy(false);
+   137→   137→    }
+   138→   138→  }, [credits, router, stopPolling]);
+   139→   139→  const parsedBatchDomains = batchInput
+   140→   140→    .split(/[\n,]/)
+   141→   141→    .map((s) => s.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase())
+   142→   142→    .filter(Boolean);
+   143→   143→  const uniqueBatch = Array.from(new Set(parsedBatchDomains)).slice(0, MAX_BATCH);
+   144→   144→  const batchCost = uniqueBatch.length * perAuditCost;
+   145→   145→
+   146→   146→  const startBatch = useCallback(async (domains: string[], n: string, m: string, deep: boolean) => {
+   147→   147→    setError("");
+   148→   148→    setInvalidDomains([]);
+   149→   149→    setBusy(true);
+   150→   150→    setPoll(null);
+   151→   151→    try {
+   152→   152→      const res = await fetch("/api/audit", {
+   153→   153→        method: "POST",
+   154→   154→        headers: { "Content-Type": "application/json" },
+   155→   155→        body: JSON.stringify({ domains, network: n, mode: m, deepScan: deep }),
+   156→   156→      });
+   157→   157→      const data: StartResponse = await res.json().catch(() => ({}));
+   158→   158→      if (!res.ok) {
+   159→   159→        if (res.status === 402) {
+   160→   160→          setError(`${data.error} You have ${credits} credits. Top up on the billing page.`);
+   161→   161→        } else {
+   162→   162→          setError(data.error || "Could not start the batch.");
+   163→   163→          if (data.invalid) setInvalidDomains(data.invalid);
+   164→   164→        }
+   165→   165→        return;
+   166→   166→      }
+   167→   167→      if (data.invalid?.length) setInvalidDomains(data.invalid);
+   168→   168→      const first = data.audits?.[0];
+   169→   169→      if (!data.batchId && first) {
+   170→   170→        // Single-domain run: reuse the single progress panel and poller.
+   171→   171→        setPoll({ status: "PENDING", domain: first.domain, id: first.id });
+   172→   172→        pollRef.current = setInterval(async () => {
+   173→   173→          try {
+   174→   174→            const r = await fetch(`/api/audit/${first.id}`);
+   175→   175→            const a = await r.json();
+   176→   176→            if (a.status === "DONE" || a.status === "FAILED") {
+   177→   177→              stopPolling();
+   178→   178→              setPoll({ id: first.id, status: a.status, probability: a.probability, verdict: a.verdict, error: a.error, domain: a.domain });
+   179→   179→              if (a.status === "DONE") router.refresh();
+   180→   180→            } else {
+   181→   181→              setPoll((p) => (p ? { ...p, status: a.status } : p));
+   182→   182→            }
+   183→   183→          } catch { /* keep polling */ }
+   184→   184→        }, 3000);
+   185→   185→        return;
+   186→   186→      }
+   187→   187→      const initial: BatchRow[] = (data.audits || []).map((a) => ({ id: a.id, domain: a.domain, status: "PENDING", probability: 0, verdict: null, error: null }));
+   188→   188→      const bid = data.batchId!;
+   189→   189→      setBatch({ batchId: bid, rows: initial });
+   190→   190→      const fetchBatch = async () => {
+   191→   191→        try {
+   192→   192→          const r = await fetch(`/api/audit?batch=${encodeURIComponent(bid)}`);
+   193→   193→          if (!r.ok) return;
+   194→   194→          const d = await r.json();
+   195→   195→          const rows: BatchRow[] = d.audits || [];
+   196→   196→          setBatch({ batchId: bid, rows });
+   197→   197→          if (rows.length > 0 && rows.every((x) => x.status === "DONE" || x.status === "FAILED")) {
+   198→   198→            if (batchRef.current) { clearInterval(batchRef.current); batchRef.current = null; }
+   199→   199→            router.refresh();
+   200→   200→          }
+   201→   201→        } catch { /* keep polling */ }
+   202→   202→      };
+   203→   203→      await fetchBatch();
+   204→   204→      batchRef.current = setInterval(fetchBatch, 4000);
+   205→   205→    } catch {
+   206→   206→      setError("Network error. Check your connection and try again.");
+   207→   207→    } finally {
+   208→   208→      setBusy(false);
+   209→   209→    }
+   210→   210→  }, [credits, router]);
+   211→   211→
+   212→   212→  useEffect(() => {
+   213→   213→    if (autostart && domain && !startedRef.current) {
+   214→   214→      startedRef.current = true;
+   215→   215→      void startAudit(domain, network, "STANDARD", false);
+   216→   216→    }
+   217→   217→    return stopPolling;
+   218→   218→  }, [autostart, domain, network, startAudit, stopPolling]);
+   219→   219→
+   220→   220→  async function submit(e: React.FormEvent) {
+   221→   221→    e.preventDefault();
+   222→   222→    if (tab === "batch") {
+   223→   223→      if (uniqueBatch.length === 0) {
+   224→   224→        setError("Enter at least one domain, one per line.");
+   225→   225→        return;
+   226→   226→      }
+   227→   227→      await startBatch(uniqueBatch, network, mode, deepScan);
+   228→   228→      return;
+   229→   229→    }
+   230→   230→    const d = domain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+   231→   231→    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(d)) {
+   232→   232→      setError("Enter a valid domain, for example myblog.com");
+   233→   233→      return;
+   234→   234→    }
+   235→   235→    await startAudit(d, network, mode, deepScan);
+   236→   236→  }
+   237→   237→
+   238→   238→  const enough = tab === "batch" ? credits >= batchCost : credits >= perAuditCost;
+   239→   239→  const displayCost = tab === "batch" ? batchCost : perAuditCost;
+   240→   240→
+   241→   241→  return (
+   242→   242→    <div className="space-y-8">
+   243→   243→      {/* Form card */}
+   244→   244→      <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 sm:p-6">
+   245→   245→        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+   246→   246→          <div>
+   247→   247→            <h1 className="text-lg font-bold text-foreground">New site audit</h1>
+   248→   248→            <p className="mt-1 text-sm text-muted-foreground">Crawls your real site, then reviews it for {NETWORKS.find((n) => n.value === network)?.label} readiness.</p>
+   249→   249→          </div>
+   250→   250→          <div className="flex rounded-md border border-border p-0.5" role="tablist" aria-label="Audit input mode">
+   251→   251→            {(["single", "batch"] as const).map((t) => (
+   252→   252→              <button
+   253→   253→                key={t} type="button" role="tab" aria-selected={tab === t}
+   254→   254→                onClick={() => { setTab(t); setError(""); }}
+   255→   255→                className={cn(
+   256→   256→                  "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-bold transition-colors",
+   257→   257→                  tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+   258→   258→                )}
+   259→   259→              >
+   260→   260→                {t === "batch" && <Layers className="h-3.5 w-3.5" />}
+   261→   261→                {t === "single" ? "Single site" : `Batch (up to ${MAX_BATCH})`}
+   262→   262→              </button>
+   263→   263→            ))}
+   264→   264→          </div>
+   265→   265→        </div>
+   266→   266→
+   267→   267→        <div className={cn("mt-5 grid gap-4", tab === "single" && "md:grid-cols-[1fr_180px]")}>
+   268→   268→          {tab === "single" ? (
+   269→   269→            <div>
+   270→   270→              <label htmlFor="a-domain" className="mb-1.5 block text-sm font-semibold text-foreground">Your domain</label>
+   271→   271→              <input
+   272→   272→                id="a-domain" type="text" inputMode="url" value={domain} onChange={(e) => setDomain(e.target.value)}
+   273→   273→                placeholder="yourblog.com" autoComplete="url"
+   274→   274→                className="h-11 w-full rounded-md border border-input bg-card px-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+   275→   275→              />
+   276→   276→            </div>
+   277→   277→          ) : (
+   278→   278→            <div>
+   279→   279→              <label htmlFor="a-batch" className="mb-1.5 block text-sm font-semibold text-foreground">
+   280→   280→                Domains <span className="font-normal text-muted-foreground">(one per line, max {MAX_BATCH})</span>
+   281→   281→              </label>
+   282→   282→              <textarea
+   283→   283→                id="a-batch" rows={5} value={batchInput}
+   284→   284→                onChange={(e) => setBatchInput(e.target.value)}
+   285→   285→                placeholder={"siteone.com\nsitetwo.com\nsitethree.com"}
+   286→   286→                className="w-full resize-y rounded-md border border-input bg-card px-3 py-2.5 font-mono text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+   287→   287→              />
+   288→   288→              {parsedBatchDomains.length > MAX_BATCH && (
+   289→   289→                <p className="mt-1.5 text-xs font-semibold text-warn">Only the first {MAX_BATCH} domains will run.</p>
+   290→   290→              )}
+   291→   291→            </div>
+   292→   292→          )}
+   293→   293→          <div>
+   294→   294→            <label className="mb-1.5 block text-sm font-semibold text-foreground">Ad network</label>
+   295→   295→            <Select value={network} onValueChange={setNetwork}>
+   296→   296→              <SelectTrigger className="h-11 w-full rounded-md text-[15px]" aria-label="Target network"><SelectValue /></SelectTrigger>
+   297→   297→              <SelectContent>
+   298→   298→                {NETWORKS.map((n) => <SelectItem key={n.value} value={n.value}>{n.label}</SelectItem>)}
+   299→   299→              </SelectContent>
+   300→   300→            </Select>
+   301→   301→          </div>
+   302→   302→        </div>
+   303→   303→
+   304→   304→        <div className="mt-4 grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Analysis mode">
+   305→   305→          {MODES.map((m) => (
+   306→   306→            <button
+   307→   307→              key={m.value} type="button" role="radio" aria-checked={mode === m.value}
+   308→   308→              onClick={() => setMode(m.value)}
+   309→   309→              className={cn(
+   310→   310→                "relative rounded-md border p-3.5 text-left transition-colors",
+   311→   311→                mode === m.value ? "border-primary bg-accent" : "border-border bg-card hover:border-input"
+   312→   312→              )}
+   313→   313→            >
+   314→   314→              {m.badge && <span className="absolute -top-2 right-3 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{m.badge}</span>}
+   315→   315→              <p className="flex items-center justify-between font-bold text-foreground">
+   316→   316→                {m.title}
+   317→   317→                {mode === m.value && <CircleCheck className="h-4 w-4 text-primary" aria-hidden="true" />}
+   318→   318→              </p>
+   319→   319→              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{m.desc}</p>
+   320→   320→              <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary">
+   321→   321→                <Coins className="h-3.5 w-3.5" /> {costs[m.value.toLowerCase() as "normal" | "standard" | "premium"]} credits
+   322→   322→              </p>
+   323→   323→            </button>
+   324→   324→          ))}
+   325→   325→        </div>
+   326→   326→
+   327→   327→        {/* Deep scan toggle */}
+   328→   328→        <label
+   329→   329→          className={cn(
+   330→   330→            "mt-3 flex cursor-pointer items-start gap-3 rounded-md border p-3.5 transition-colors",
+   331→   331→            deepScan ? "border-primary bg-accent" : "border-border bg-card hover:border-input"
+   332→   332→          )}
+   333→   333→        >
+   334→   334→          <input
+   335→   335→            type="checkbox"
+   336→   336→            checked={deepScan}
+   337→   337→            onChange={(e) => setDeepScan(e.target.checked)}
+   338→   338→            className="sr-only"
+   339→   339→            aria-describedby="deep-scan-desc"
+   340→   340→          />
+   341→   341→          <span
+   342→   342→            aria-hidden="true"
+   343→   343→            className={cn(
+   344→   344→              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border",
+   345→   345→              deepScan ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card"
+   346→   346→            )}
+   347→   347→          >
+   348→   348→            {deepScan && (
+   349→   349→              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+   350→   350→                <path d="M2 6.5 4.7 9 10 3.4" />
+   351→   351→              </svg>
+   352→   352→            )}
+   353→   353→          </span>
+   354→   354→          <span className="min-w-0 flex-1">
+   355→   355→            <span className="flex flex-wrap items-center gap-2">
+   356→   356→              <span className="font-bold text-foreground">Deep scan</span>
+   357→   357→              <span className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+   358→   358→                <ScanSearch className="h-3 w-3" aria-hidden="true" /> +{deepCost} credits
+   359→   359→              </span>
+   360→   360→            </span>
+   361→   361→            <span id="deep-scan-desc" className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+   362→   362→              Samples 10 articles instead of 3, reads every sitemap in the index, and opens your About, Contact, Privacy and Terms pages for real to verify they exist and hold real content. Also measures publishing freshness and the share of thin posts.
+   363→   363→            </span>
+   364→   364→          </span>
+   365→   365→        </label>
+   366→   366→
+   367→   367→        {error && <p className="mt-4 rounded-md bg-risk-soft px-3 py-2.5 text-sm font-medium text-risk" role="alert">
+   368→   368→          {error} {error.includes("credits") && <Link href="/dashboard/billing" className="underline font-bold">Buy credits</Link>}
+   369→   369→        </p>}
+   370→   370→        {invalidDomains.length > 0 && (
+   371→   371→          <p className="mt-2 rounded-md bg-warn-soft px-3 py-2.5 text-sm font-medium text-warn" role="alert">
+   372→   372→            Skipped (unreachable or invalid): {invalidDomains.join(", ")}
+   373→   373→          </p>
+   374→   374→        )}
+   375→   375→
+   376→   376→        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   377→   377→          <p className="text-sm text-muted-foreground">
+   378→   378→            {tab === "batch" && uniqueBatch.length > 0 && (
+   379→   379→              <span className="font-semibold text-foreground">{uniqueBatch.length} {uniqueBatch.length === 1 ? "site" : "sites"} × {perAuditCost} = </span>
+   380→   380→            )}
+   381→   381→            {deepScan && tab === "single" && (
+   382→   382→              <span className="font-semibold text-foreground">{modeCost} + {deepCost} deep = </span>
+   383→   383→            )}
+   384→   384→            Balance: <span className="font-bold text-foreground">{credits.toLocaleString()}</span> credits
+   385→   385→            {!enough && <span className="ml-1 font-semibold text-risk">(need {displayCost})</span>}
+   386→   386→          </p>
+   387→   387→          <Button type="submit" disabled={busy || !enough} className="h-11 rounded-md px-6 font-semibold">
+   388→   388→            <SearchCheck className="mr-2 h-4.5 w-4.5" />
+   389→   389→            {busy ? "Starting..." : tab === "batch" ? `Run ${uniqueBatch.length || ""} ${uniqueBatch.length === 1 ? "audit" : "audits"}` : "Run audit"}
+   390→   390→          </Button>
+   391→   391→        </div>
+   392→   392→      </form>
+   393→   393→
+   394→   394→      {/* Live batch progress */}
+   395→   395→      {batch && (
+   396→   396→        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6" aria-live="polite">
+   397→   397→          <div className="flex items-center justify-between">
+   398→   398→            <div className="flex items-center gap-2.5">
+   399→   399→              <Layers className="h-5 w-5 text-primary" />
+   400→   400→              <p className="font-bold text-foreground">Batch of {batch.rows.length}</p>
+   401→   401→            </div>
+   402→   402→            <BatchCounter rows={batch.rows} />
+   403→   403→          </div>
+   404→   404→          <ol className="mt-4 divide-y divide-border overflow-hidden rounded-md border border-border">
+   405→   405→            {batch.rows.map((row, i) => (
+   406→   406→              <li key={row.id} className="flex items-center gap-3 bg-card px-4 py-3">
+   407→   407→                <span className="w-6 text-xs font-bold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+   408→   408→                <div className="min-w-0 flex-1">
+   409→   409→                  {row.status === "DONE" ? (
+   410→   410→                    <Link href={`/dashboard/audit/${row.id}`} className="truncate font-semibold text-foreground hover:text-primary">{row.domain}</Link>
+   411→   411→                  ) : (
+   412→   412→                    <span className="truncate font-semibold text-foreground">{row.domain}</span>
+   413→   413→                  )}
+   414→   414→                  {row.status === "FAILED" && row.error && <p className="mt-0.5 truncate text-xs text-risk">{row.error}</p>}
+   415→   415→                </div>
+   416→   416→                {row.status === "DONE" && (
+   417→   417→                  <span className={cn(
+   418→   418→                    "rounded-sm px-2 py-1 text-xs font-bold",
+   419→   419→                    row.probability >= 70 ? "bg-ok-soft text-ok" : row.probability >= 45 ? "bg-warn-soft text-warn" : "bg-risk-soft text-risk"
+   420→   420→                  )}>
+   421→   421→                    {row.probability}%
+   422→   422→                  </span>
+   423→   423→                )}
+   424→   424→                <RowStatus status={row.status} />
+   425→   425→              </li>
+   426→   426→            ))}
+   427→   427→          </ol>
+   428→   428→          {batch.rows.every((r) => r.status === "DONE" || r.status === "FAILED") && (
+   429→   429→            <p className="mt-3 text-sm text-muted-foreground">
+   430→   430→              Batch finished. Reports stay in your audit history, and each one can be downloaded as a PDF.
+   431→   431→            </p>
+   432→   432→          )}
+   433→   433→        </div>
+   434→   434→      )}
+   435→   435→
+   436→   436→      {/* Live single progress */}
+   437→   437→      {poll && (
+   438→   438→        <div className="fade-up rounded-lg border border-border bg-card p-5 sm:p-6" aria-live="polite">
+   439→   439→          {poll.status === "FAILED" ? (
+   440→   440→            <div>
+   441→   441→              <div className="flex items-center gap-2.5">
+   442→   442→                <CircleX className="h-6 w-6 text-risk" />
+   443→   443→                <p className="font-bold text-foreground">Audit failed for {poll.domain}</p>
+   444→   444→              </div>
+   445→   445→              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{poll.error || "Unknown error"} Credits were refunded.</p>
+   446→   446→            </div>
+   447→   447→          ) : poll.status === "DONE" ? (
+   448→   448→            <div>
+   449→   449→              <div className="flex flex-col items-center gap-5 sm:flex-row">
+   450→   450→                <ScoreRing value={poll.probability || 0} size={110} />
+   451→   451→                <div>
+   452→   452→                  <p className="text-sm font-semibold text-muted-foreground">Audit complete for {poll.domain}</p>
+   453→   453→                  <div className="mt-1.5 flex items-center gap-2">
+   454→   454→                    <VerdictBadge verdict={poll.verdict || ""} />
+   455→   455→                    <span className="text-lg font-bold text-foreground">{poll.probability}% approval probability</span>
+   456→   456→                  </div>
+   457→   457→                  <Link href={`/dashboard/audit/${poll.id || ""}`}>
+   458→   458→                    <Button className="mt-3 rounded-md font-semibold">View full report</Button>
+   459→   459→                  </Link>
+   460→   460→                </div>
+   461→   461→              </div>
+   462→   462→            </div>
+   463→   463→          ) : (
+   464→   464→            <AuditProgress status={poll.status} domain={poll.domain} />
+   465→   465→          )}
+   466→   466→        </div>
+   467→   467→      )}
+   468→   468→
+   469→   469→      {/* History */}
+   470→   470→      <div>
+   471→   471→        <div className="flex flex-wrap items-center justify-between gap-2">
+   472→   472→          <h2 className="text-lg font-bold text-foreground">Audit history</h2>
+   473→   473→          <div className="flex flex-wrap items-center gap-2">
+   474→   474→            <Link
+   475→   475→              href="/dashboard/domains"
+   476→   476→              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+   477→   477→            >
+   478→   478→              <LineChart className="h-3.5 w-3.5" aria-hidden="true" /> Domain trends
+   479→   479→            </Link>
+   480→   480→            {[
+   481→   481→              { v: "all", label: "All" },
+   482→   482→              { v: "ready", label: "70%+" },
+   483→   483→              { v: "close", label: "45-69%" },
+   484→   484→              { v: "risk", label: "Under 45%" },
+   485→   485→            ].map((f) => (
+   486→   486→              <button
+   487→   487→                key={f.v} type="button"
+   488→   488→                onClick={() => setScoreFilter(f.v as typeof scoreFilter)}
+   489→   489→                aria-pressed={scoreFilter === f.v}
+   490→   490→                className={cn(
+   491→   491→                  "rounded-sm border px-2.5 py-1.5 text-xs font-bold transition-colors",
+   492→   492→                  scoreFilter === f.v ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
+   493→   493→                )}
+   494→   494→              >
+   495→   495→                {f.label}
+   496→   496→              </button>
+   497→   497→            ))}
+   498→   498→            {history.length > 0 && (
+   499→   499→              <a
+   500→   500→                href="/api/export/audits"
+   501→   501→                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+   502→   502→                download
+   503→   503→              >
+   504→   504→                <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Export CSV
+   505→   505→              </a>
+   506→   506→            )}
+   507→   507→          </div>
+   508→   508→        </div>
+   509→   509→        {history.length === 0 ? (
+   510→   510→          <EmptyState
+   511→   511→            image="audit-desk"
+   512→   512→            title="No audits yet"
+   513→   513→            body="Your first audit takes about two minutes: pick a domain, choose a mode, and the engine does the rest."
+   514→   514→            cta="Run your first audit"
+   515→   515→            href="/dashboard/audit"
+   516→   516→          />
+   517→   517→        ) : (
+   518→   518→          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
+   519→   519→            <ul className="divide-y divide-border">
+   520→   520→              {history.filter((h) =>
+   521→   521→                scoreFilter === "all" ? true :
+   522→   522→                scoreFilter === "ready" ? h.status === "DONE" && h.probability >= 70 :
+   523→   523→                scoreFilter === "close" ? h.status === "DONE" && h.probability >= 45 && h.probability < 70 :
+   524→   524→                h.status === "DONE" && h.probability < 45
+   525→   525→              ).map((h) => (
+   526→   526→                <li key={h.id} className="flex flex-col gap-2 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-center">
+   527→   527→                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold uppercase text-primary" aria-hidden="true">
+   528→   528→                    {h.domain.replace(/^www\./, "").charAt(0)}
+   529→   529→                  </div>
+   530→   530→                  <div className="min-w-0 flex-1">
+   531→   531→                    <div className="flex flex-wrap items-center gap-2">
+   532→   532→                      <Link
+   533→   533→                        href={`/dashboard/domains/${encodeURIComponent(h.domain)}`}
+   534→   534→                        className="font-semibold text-foreground hover:text-primary"
+   535→   535→                        title={`Score trend for ${h.domain}`}
+   536→   536→                      >
+   537→   537→                        {h.domain}
+   538→   538→                      </Link>
+   539→   539→                      {h.batchId && <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">Batch</span>}
+   540→   540→                    </div>
+   541→   541→                    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+   542→   542→                      <span>{networkLabel(h.target)}</span>
+   543→   543→                      <span>{h.mode.charAt(0) + h.mode.slice(1).toLowerCase()} mode</span>
+   544→   544→                      {h.deepScan && <span className="inline-flex items-center gap-1 font-semibold text-primary"><ScanSearch className="h-3 w-3" aria-hidden="true" />Deep scan</span>}
+   545→   545→                      <span>{new Date(h.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+   546→   546→                    </p>
+   547→   547→                  </div>
+   548→   548→                  <div className="flex items-center gap-2">
+   549→   549→                    {(h.status === "DONE" || h.status === "FAILED") && (
+   550→   550→                      <button
+   551→   551→                        type="button"
+   552→   552→                        onClick={() => { setTab("single"); setDomain(h.domain); setNetwork(h.target); setMode(h.mode); setDeepScan(h.deepScan === true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+   553→   553→                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+   554→   554→                        title={`Run ${h.domain} again`}
+   555→   555→                        aria-label={`Run ${h.domain} again with the same settings`}
+   556→   556→                      >
+   557→   557→                        <RotateCw className="h-3.5 w-3.5" /> Re-run
+   558→   558→                      </button>
+   559→   559→                    )}
+   560→   560→                    {h.status === "DONE" && (
+   561→   561→                      <>
+   562→   562→                        <span className={cn(
+   563→   563→                          "rounded-sm px-2 py-1 text-xs font-bold",
+   564→   564→                          h.probability >= 70 ? "bg-ok-soft text-ok" : h.probability >= 45 ? "bg-warn-soft text-warn" : "bg-risk-soft text-risk"
+   565→   565→                        )}>
+   566→   566→                          {h.probability}%
+   567→   567→                        </span>
+   568→   568→                        <Link
+   569→   569→                          href={`/dashboard/audit/${h.id}`}
+   570→   570→                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+   571→   571→                          aria-label="Open report"
+   572→   572→                          title="Open report"
+   573→   573→                        >
+   574→   574→                          <ExternalLink className="h-4 w-4" />
+   575→   575→                        </Link>
+   576→   576→                        <a href={`/api/audit/${h.id}/pdf`} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary" aria-label="Download PDF report" title="Download PDF report">
+   577→   577→                          <FileDown className="h-4 w-4" />
+   578→   578→                        </a>
+   579→   579→                      </>
+   580→   580→                    )}
+   581→   581→                    {h.status === "RUNNING" || h.status === "PENDING" ? <span className="text-xs font-semibold text-warn">Analyzing...</span> : null}
+   582→   582→                    {h.status === "FAILED" && <span className="text-xs font-semibold text-risk">Failed</span>}
+   583→   583→                  </div>
+   584→   584→                </li>
+   585→   585→              ))}
+   586→   586→            </ul>
+   587→   587→            {history.filter((h) =>
+   588→   588→              scoreFilter === "all" ? true :
+   589→   589→              scoreFilter === "ready" ? h.status === "DONE" && h.probability >= 70 :
+   590→   590→              scoreFilter === "close" ? h.status === "DONE" && h.probability >= 45 && h.probability < 70 :
+   591→   591→              h.status === "DONE" && h.probability < 45
+   592→   592→            ).length === 0 && (
+   593→   593→              <p className="p-4 text-center text-sm text-muted-foreground">No audits match this filter.</p>
+   594→   594→            )}
+   595→   595→          </div>
+   596→   596→        )}
+   597→   597→      </div>
+   598→   598→    </div>
+   599→   599→  );
+   600→   600→}
+   601→   601→
+   602→   602→function networkLabel(code: string): string {
+   603→   603→  const map: Record<string, string> = { ADSENSE: "Google AdSense", EZOIC: "Ezoic", MEDIAVINE: "Mediavine", RAPTIVE: "Raptive" };
+   604→   604→  return map[code] || code;
+   605→   605→}
+   606→   606→
+   607→   607→function BatchCounter({ rows }: { rows: BatchRow[] }) {
+   608→   608→  const failed = rows.filter((r) => r.status === "FAILED").length;
+   609→   609→  const finished = rows.filter((r) => r.status === "DONE" || r.status === "FAILED").length;
+   610→   610→  return (
+   611→   611→    <p className="text-sm text-muted-foreground">
+   612→   612→      <span className="font-bold text-foreground">{finished}/{rows.length}</span> done
+   613→   613→      {failed > 0 && <span className="ml-2 font-semibold text-risk">{failed} failed</span>}
+   614→   614→    </p>
+   615→   615→  );
+   616→   616→}
+   617→   617→
+   618→   618→function RowStatus({ status }: { status: string }) {
+   619→   619→  if (status === "DONE") return <CircleCheck className="h-5 w-5 shrink-0 text-ok" aria-label="Completed" />;
+   620→   620→  if (status === "FAILED") return <CircleX className="h-5 w-5 shrink-0 text-risk" aria-label="Failed" />;
+   621→   621→  return <StatusIcon status="pending" className="h-5 w-5 shrink-0" aria-label="In progress" />;
+   622→   622→}
+   623→   623→
+   624→   624→function AuditProgress({ status, domain }: { status: string; domain: string }) {
+   625→   625→  const steps = [
+   626→   626→    { key: "CRAWL", label: "Crawling your site" },
+   627→   627→    { key: "ANALYZE", label: "AI policy review" },
+   628→   628→    { key: "SCORE", label: "Scoring and roadmap" },
+   629→   629→  ];
+   630→   630→  const activeIndex = status === "PENDING" ? 0 : status === "RUNNING" ? 1 : 2;
+   631→   631→  return (
+   632→   632→    <div>
+   633→   633→      <div className="flex items-center gap-2.5">
+   634→   634→        <StatusIcon status="pending" className="h-5 w-5" />
+   635→   635→        <p className="font-bold text-foreground">Auditing {domain}</p>
+   636→   636→      </div>
+   637→   637→      <p className="mt-1.5 text-sm text-muted-foreground">This usually takes 1 to 3 minutes. You can leave this page open.</p>
+   638→   638→      <ol className="mt-4 space-y-3">
+   639→   639→        {steps.map((st, i) => (
+   640→   640→          <li key={st.key} className="flex items-center gap-3">
+   641→   641→            {i < activeIndex ? (
+   642→   642→              <CircleCheck className="h-5 w-5 text-ok" />
+   643→   643→            ) : i === activeIndex ? (
+   644→   644→              <StatusIcon status="pending" className="h-5 w-5" />
+   645→   645→            ) : (
+   646→   646→              <CircleMinus className="h-5 w-5 text-muted-foreground/40" />
+   647→   647→            )}
+   648→   648→            <span className={cn("text-sm", i <= activeIndex ? "font-semibold text-foreground" : "text-muted-foreground")}>
+   649→   649→              {st.label}
+   650→   650→            </span>
+   651→   651→          </li>
+   652→   652→        ))}
+   653→   653→      </ol>
+   654→   654→    </div>
+   655→   655→  );
+   656→   656→}
+   657→   657→

@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Runs ON the Hostinger server after the runner has rsynced laravel-app/.
+#
+# ARCHITECTURE: pure PHP Laravel app served NATIVELY by LiteSpeed.
+# No Node process, no proxy, no unix socket - the docroot index.php boots
+# the framework directly, so the old 503 (dead backend) and 403 (no index)
+# are structurally impossible.
+set -u
+
+APP="$HOME/laravel-app"
+
+echo "=== LARAVEL ON-SERVER DEPLOY $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+cd "$APP" || { echo "FATAL: cannot cd $APP"; exit 1; }
+echo "-- app dir: $(du -sh . 2>/dev/null | cut -f1), $(find vendor -name '*.php' 2>/dev/null | wc -l) vendor php files"
+
+# ---------- 1) locate a PHP >= 8.2 CLI ----------
+find_php() {
+  for c in /usr/local/bin/php /usr/bin/php /opt/alt/php84/root/usr/bin/php \
+           /opt/alt/php83/root/usr/bin/php /opt/alt/php82/root/usr/bin/php \
+           /opt/alt/php81/root/usr/bin/php php php82 php83 php84; do
+    if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then
+      V=$("$c" -r 'echo PHP_VERSION;' 2>/dev/null) || continue
+      case "$V" in
+        8.2*|8.3*|8.4*|8.5*|9.*) echo "$c"; return 0 ;;
+      esac
+    fi
+  done
+  return 1
+}
+PHP="$(find_php)" || { echo "FATAL: no PHP >= 8.2 CLI found on server"; exit 1; }
+echo "-- PHP CLI: $PHP ($("$PHP" -r 'echo PHP_VERSION;'))"
+
+# ---------- 2) environment ----------
+if [ ! -f .env ] && [ -f .env.production ]; then
+  mv .env.production .env
+  chmod 600 .env
+  echo "-- .env installed (first run)"
+elif [ -f .env ]; then
+  rm -f .env.production
+  echo "-- keeping existing .env (APP_KEY preserved)"
+fi
+[ -f .env ] || { echo "FATAL: .env missing"; exit 1; }
+
+grep -q '^APP_KEY=base64' .env || {
+  "$PHP" artisan key:generate --force && echo "-- APP_KEY generated"
+}
+grep -q '^APP_KEY=base64' .env || { echo "FATAL: APP_KEY missing"; exit 1; }
+
+# ---------- 3) stop the legacy Node supervisor (old architecture) ----------
+pkill -f 'auditform/run-app.sh' 2>/dev/null || true
+pkill -f 'auditform/app/server.js' 2>/dev/null || true
+echo "-- legacy node stack stopped (if any)"
+
+# ---------- 4) database: clean schema + seed ----------
+echo "-- database: migrate:fresh (drops all tables, clean schema) --"
+"$PHP" artisan migrate:fresh --force --seed 2>&1 | tail -12 || { echo "FATAL: migrate failed"; exit 1; }
+
+# ---------- 5) caches ----------
+"$PHP" artisan config:cache >/dev/null 2>&1 && echo "-- config cached"
+"$PHP" artisan route:cache  >/dev/null 2>&1 && echo "-- routes cached"
+"$PHP" artisan view:cache   >/dev/null 2>&1 && echo "-- views cached"
+"$PHP" artisan storage:link >/dev/null 2>&1 && echo "-- storage linked (app side)"
+
+chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
+
+# ---------- 6) wire the domain docroot ----------
+DOCROOT=$(ls -d "$HOME"/domains/*/public_html 2>/dev/null | head -1)
+if [ -z "$DOCROOT" ] || [ ! -d "$DOCROOT" ]; then
+  echo "FATAL: no ~/domains/*/public_html found - wire the domain manually in hPanel"
+  exit 1
+fi
+echo "-- docroot: $DOCROOT"
+
+# 6a) remove the old Node.js bridge architecture
+rm -f "$DOCROOT/index.php" "$DOCROOT/.htaccess"
+rm -rf "$DOCROOT/_next"
+
+# 6b) static assets served directly by LiteSpeed
+cd "$APP/public" || exit 1
+for item in build fonts illustrations logos logo.svg robots.txt favicon.ico; do
+  if [ -e "$item" ]; then
+    rm -rf "$DOCROOT/$item"
+    cp -r "$item" "$DOCROOT/"
+  fi
+done
+echo "-- static assets copied (build/, fonts/, illustrations/, logos/)"
+cd "$APP" || exit 1
+
+# 6c) storage symlink for generated writer images
+rm -rf "$DOCROOT/storage"
+ln -sfn "$APP/storage/app/public" "$DOCROOT/storage"
+echo "-- storage symlink: $DOCROOT/storage -> $APP/storage/app/public"
+
+# 6d) .htaccess (Laravel front controller; real files served directly)
+cp "$APP/public/.htaccess" "$DOCROOT/.htaccess"
+
+# 6e) index.php: boot the framework straight from the docroot
+cat > "$DOCROOT/index.php" <<PHP
+<?php
+define('LARAVEL_START', microtime(true));
+require '$APP/vendor/autoload.php';
+(require_once '$APP/bootstrap/app.php')
+    ->handleRequest(Illuminate\\Http\\Request::capture());
+PHP
+chmod 644 "$DOCROOT/index.php" "$DOCROOT/.htaccess"
+echo "-- index.php + .htaccess installed (pure PHP, no proxy)"
+
+# ---------- 7) local sanity: boot the kernel through CLI ----------
+"$PHP" artisan --version 2>&1 | head -1
+echo "=== LARAVEL ON-SERVER DEPLOY COMPLETE ==="

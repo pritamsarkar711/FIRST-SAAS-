@@ -1,0 +1,200 @@
+name: Deploy Laravel to Hostinger
+
+# The site runs as a PURE PHP Laravel app - served natively by LiteSpeed.
+# No Node process, no reverse proxy, no unix-socket bridge: the 503/403
+# problems of the Node.js architecture are structurally impossible here.
+#
+# 1. Build on the runner: composer --no-dev + vite assets
+# 2. rsync laravel-app/ to ~/laravel-app on the server
+# 3. on-server.sh: install .env, migrate:fresh --seed (MySQL), wire the
+#    domain docroot (index.php + .htaccess + static assets), PHP caches
+# 4. Smoke-test the public URL
+#
+# Required secrets (already set on this repo):
+#   SSH_HOST, SSH_PORT, SSH_USER, SSH_PASSWORD
+#   DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+#   NEXT_PUBLIC_SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "deploy = full build + deploy"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+  push:
+    branches: [main]
+    paths:
+      - "laravel-app/**"
+      - "scripts/deploy-laravel/**"
+      - ".github/workflows/deploy-laravel.yml"
+
+concurrency:
+  group: laravel-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check prerequisites
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_PORT" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PASSWORD" ]; then
+            echo "## Skipped: SSH secrets missing" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DB_NAME }}" ]; then
+            echo "## FAILED: DB_NAME secret missing" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "SSH + DB secrets present"
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, dom, zip, xml, curl, pdo, pdo_mysql, sqlite3, intl, gd, fileinfo, openssl, tokenizer
+          coverage: none
+
+      - name: Composer install (production, optimized)
+        working-directory: laravel-app
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress
+
+      - name: PHP syntax sanity check
+        working-directory: laravel-app
+        run: |
+          ERR=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" >/dev/null 2>&1 || { echo "SYNTAX ERROR: $f"; php -l "$f" 2>&1 | head -3; ERR=1; }
+          done < <(find app database routes config -name '*.php' -print0)
+          exit $ERR
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend assets (Vite)
+        working-directory: laravel-app
+        run: npm install --no-audit --no-fund && npm run build
+
+      - name: Install sshpass + rsync
+        run: |
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass rsync >/dev/null 2>&1
+
+      - name: Write production .env (from secrets)
+        run: |
+          cat > laravel-app/.env.production <<ENVFILE
+          APP_NAME="Audit Form"
+          APP_ENV=production
+          APP_DEBUG=false
+          APP_KEY=
+          APP_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+
+          APP_LOCALE=en
+          APP_FALLBACK_LOCALE=en
+
+          LOG_CHANNEL=daily
+          LOG_LEVEL=error
+
+          DB_CONNECTION=mysql
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_PORT=3306
+          DB_DATABASE="${{ secrets.DB_NAME }}"
+          DB_USERNAME="${{ secrets.DB_USER }}"
+          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+
+          SESSION_DRIVER=database
+          SESSION_LIFETIME=43200
+          SESSION_SECURE_COOKIE=true
+
+          BROADCAST_CONNECTION=log
+          FILESYSTEM_DISK=local
+          QUEUE_CONNECTION=sync
+          CACHE_STORE=file
+
+          MAIL_MAILER=log
+          MAIL_FROM_ADDRESS="support@adaudit.app"
+          MAIL_FROM_NAME="Audit Form"
+
+          GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+          GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+
+          ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}"
+          ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
+
+          VITE_APP_NAME="Audit Form"
+          ENVFILE
+
+      - name: Create remote directory
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'mkdir -p ~/laravel-app && echo SSH_OK'
+
+      - name: Rsync Laravel app to server
+        working-directory: laravel-app
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          RSYNC_SSH="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          rsync -az --delete --info=stats1 \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude '.env.production' \
+            --exclude '.git' \
+            --exclude 'tests' \
+            --exclude 'database/database.sqlite' \
+            --exclude 'storage/framework/sessions/*' \
+            --exclude 'storage/framework/cache/*' \
+            --exclude 'storage/logs/*' \
+            --exclude 'storage/app/generated/*' \
+            --exclude 'bootstrap/cache/*.php' \
+            -e "sshpass -e $RSYNC_SSH" \
+            ./ "$SSH_USER@$SSH_HOST:laravel-app/"
+          rsync -az -e "sshpass -e $RSYNC_SSH" \
+            .env.production "$SSH_USER@$SSH_HOST:laravel-app/.env.production"
+
+      - name: Server-side setup, migrate, wire domain
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'bash -s' < scripts/deploy-laravel/on-server.sh
+
+      - name: Public URL smoke test
+        run: |
+          URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          OK=0
+          for i in 1 2 3 4 5 6; do
+            CODE=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 25 -L "$URL" || echo 000)
+            echo "public URL check (try $i): $URL -> $CODE"
+            if [ "$CODE" = "200" ]; then
+              if grep -qi "Audit Form" /tmp/body; then
+                echo "APP CONTENT CONFIRMED: the public URL is serving the Laravel app."
+                OK=1
+              else
+                echo "200 but content mismatch. First 300 chars:"; head -c 300 /tmp/body
+              fi
+              break
+            fi
+            sleep 6
+          done
+          for p in /login /pricing /manage/login; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 -L "$URL$p" || echo 000)
+            echo "  $p -> $CODE"
+          done
+          if [ "$OK" != "1" ]; then
+            echo "## Public URL did not return the app yet (see checks above)" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,746 @@
+════════ /home/z/my-project/src/app/api/admin/users/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
+
+export async function GET(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const q = req.nextUrl.searchParams.get("q")?.trim().toLowerCase() || "";
+  const users = await db.user.findMany({
+    where: q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }] } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: {
+      id: true, email: true, name: true, role: true, status: true, credits: true,
+      referralCode: true, createdAt: true, twoFactorEnabled: true,
+      _count: { select: { audits: true, payments: true } },
+    },
+  });
+  return NextResponse.json({ users });
+}
+
+const actionSchema = z.object({
+  id: z.string().min(1),
+  action: z.enum(["suspend", "activate", "addCredits", "setCredits", "makeAdmin", "removeAdmin", "reset2fa", "delete"]),
+  amount: z.number().int().optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = actionSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+  const { id, action, amount } = parsed.data;
+
+  const target = await db.user.findUnique({ where: { id } });
+  if (!target) return NextResponse.json({ error: "User not found." }, { status: 404 });
+
+  const log = (action: Parameters<typeof logActivity>[0]["action"], detail: string) =>
+    logActivity({ action, actorEmail: admin.email, userId: target.id, detail });
+
+  switch (action) {
+    case "suspend":
+      await db.user.update({ where: { id }, data: { status: "SUSPENDED" } });
+      log("USER_SUSPEND", target.email);
+      break;
+    case "activate":
+      await db.user.update({ where: { id }, data: { status: "ACTIVE" } });
+      log("USER_UNSUSPEND", target.email);
+      break;
+    case "addCredits":
+      if (!amount) return NextResponse.json({ error: "Amount required." }, { status: 400 });
+      await db.user.update({ where: { id }, data: { credits: { increment: amount } } });
+      log("USER_CREDITS_ADJUST", `${target.email} +${amount} credits`);
+      break;
+    case "setCredits":
+      if (amount === undefined || amount < 0) return NextResponse.json({ error: "Amount required." }, { status: 400 });
+      await db.user.update({ where: { id }, data: { credits: amount } });
+      log("USER_CREDITS_ADJUST", `${target.email} set to ${amount} credits (was ${target.credits})`);
+      break;
+    case "makeAdmin":
+      await db.user.update({ where: { id }, data: { role: "ADMIN" } });
+      log("USER_ROLE_CHANGE", `${target.email} promoted to admin`);
+      break;
+    case "removeAdmin":
+      if (target.id === admin.id) return NextResponse.json({ error: "You cannot remove your own admin role." }, { status: 400 });
+      await db.user.update({ where: { id }, data: { role: "USER" } });
+      log("USER_ROLE_CHANGE", `${target.email} demoted to user`);
+      break;
+    case "reset2fa":
+      await db.user.update({ where: { id }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+      log("AUTH_2FA_DISABLE", `Admin reset 2FA for ${target.email}`);
+      break;
+    case "delete":
+      if (target.id === admin.id) return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
+      await db.user.delete({ where: { id } });
+      log("USER_DELETE", target.email);
+      break;
+  }
+  return NextResponse.json({ ok: true });
+}
+════════ /home/z/my-project/src/app/api/admin/audits/route.ts ════════
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const audits = await db.audit.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { user: { select: { email: true } } },
+  });
+  return NextResponse.json({
+    audits: audits.map((a) => ({
+      id: a.id, domain: a.domain, target: a.target, mode: a.mode, status: a.status,
+      probability: a.probability, verdict: a.verdict, createdAt: a.createdAt,
+      user: { email: a.user.email },
+    })),
+  });
+}
+════════ /home/z/my-project/src/app/api/admin/monitors/route.ts ════════
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  const items = await db.watchItem.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { user: { select: { email: true, status: true } } },
+  });
+
+  const now = Date.now();
+  const monitors = items.map((w) => ({
+    id: w.id,
+    domain: w.domain,
+    target: w.target,
+    mode: w.mode,
+    deepScan: w.deepScan,
+    intervalDays: w.intervalDays,
+    active: w.active,
+    pausedReason: w.pausedReason,
+    runs: w.runs,
+    lastScore: w.lastScore,
+    lastRunAt: w.lastRunAt,
+    nextRunAt: w.nextRunAt,
+    overdueMinutes: w.active && w.nextRunAt.getTime() < now ? Math.round((now - w.nextRunAt.getTime()) / 60_000) : null,
+    user: { email: w.user.email, status: w.user.status },
+    createdAt: w.createdAt,
+  }));
+
+  return NextResponse.json({
+    monitors,
+    summary: {
+      total: monitors.length,
+      active: monitors.filter((m) => m.active).length,
+      deep: monitors.filter((m) => m.deepScan).length,
+      overdue: monitors.filter((m) => m.overdueMinutes !== null).length,
+    },
+  });
+}
+════════ /home/z/my-project/src/app/api/admin/payments/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { approvePaymentById } from "@/lib/payments";
+import { notify } from "@/lib/notify";
+import { logActivity } from "@/lib/activity";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const payments = await db.payment.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { user: { select: { email: true, name: true } } },
+  });
+  return NextResponse.json({ payments });
+}
+
+const actionSchema = z.object({
+  id: z.string().min(1),
+  action: z.enum(["approve", "reject"]),
+  note: z.string().max(300).optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = actionSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+
+  const payment = await db.payment.findUnique({ where: { id: parsed.data.id }, select: { id: true, status: true, planName: true, amount: true, gateway: true, userId: true } });
+  if (!payment) return NextResponse.json({ error: "Payment not found." }, { status: 404 });
+  if (payment.status !== "PENDING") return NextResponse.json({ error: `This payment is already ${payment.status.toLowerCase()}.` }, { status: 400 });
+
+  if (parsed.data.action === "approve") {
+    const result = await approvePaymentById(payment.id, admin.email, parsed.data.note);
+    if (!result.ok) return NextResponse.json({ error: "Payment could not be approved." }, { status: 400 });
+    return NextResponse.json({ ok: true, message: `Approved. ${result.credits} credits added.` });
+  }
+
+  await db.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", reviewedAt: new Date(), note: parsed.data.note } });
+  await notify(
+    payment.userId,
+    "PAYMENT",
+    "Payment could not be verified",
+    `Your ${payment.planName} order was rejected. ${parsed.data.note ? "Reason: " + parsed.data.note : "Contact support if you believe this is a mistake."}`,
+    "/dashboard/billing"
+  );
+  logActivity({
+    action: "PAYMENT_REJECT",
+    actorEmail: admin.email,
+    userId: payment.userId,
+    detail: `${payment.planName} · $${payment.amount.toFixed(2)} · ${payment.gateway}${parsed.data.note ? " · " + parsed.data.note : ""}`,
+  });
+  return NextResponse.json({ ok: true, message: "Payment rejected." });
+}
+════════ /home/z/my-project/src/app/api/admin/plans/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
+  return NextResponse.json({ plans });
+}
+
+const planSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(2).max(40),
+  slug: z.string().trim().min(2).max(40).regex(/^[a-z0-9-]+$/),
+  description: z.string().trim().max(200).optional().default(""),
+  priceUsd: z.number().min(0).max(100000),
+  credits: z.number().int().min(0).max(1000000),
+  monitorLimit: z.number().int().min(0).max(500).nullable().optional(),
+  featuresRaw: z.string().max(2000).optional().default(""),
+  badge: z.string().trim().max(30).optional().default(""),
+  active: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).max(99).default(0),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = planSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid plan data." }, { status: 400 });
+  const d = parsed.data;
+  const features = JSON.stringify(d.featuresRaw.split("\n").map((f) => f.trim()).filter(Boolean));
+  const data = {
+    name: d.name, slug: d.slug, description: d.description || null, priceUsd: d.priceUsd,
+    credits: d.credits, monitorLimit: typeof d.monitorLimit === "number" ? d.monitorLimit : null,
+    features, badge: d.badge || null, active: d.active, sortOrder: d.sortOrder,
+  };
+
+  if (d.id) {
+    await db.plan.update({ where: { id: d.id }, data });
+    logActivity({ action: "PLAN_SAVE", actorEmail: admin.email, detail: `Updated plan ${d.name} ($${d.priceUsd} / ${d.credits} credits)` });
+  } else {
+    await db.plan.create({ data });
+    logActivity({ action: "PLAN_SAVE", actorEmail: admin.email, detail: `Created plan ${d.name} ($${d.priceUsd} / ${d.credits} credits)` });
+  }
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Plan id required." }, { status: 400 });
+  const inUse = await db.payment.count({ where: { planId: id } });
+  if (inUse > 0) {
+    await db.plan.update({ where: { id }, data: { active: false } });
+    return NextResponse.json({ ok: true, message: "Plan has payments, so it was deactivated instead of deleted." });
+  }
+  await db.plan.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}
+════════ /home/z/my-project/src/app/api/admin/gateways/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const gateways = await db.gatewayConfig.findMany({ orderBy: { sortOrder: "asc" } });
+  return NextResponse.json({ gateways });
+}
+
+const schema = z.object({
+  id: z.string().min(1),
+  enabled: z.boolean().optional(),
+  mode: z.enum(["MANUAL", "API"]).optional(),
+  instructions: z.string().max(1000).optional(),
+  config: z.string().max(4000).optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid gateway data." }, { status: 400 });
+  const { id, config, ...rest } = parsed.data;
+  if (config !== undefined) {
+    try { JSON.parse(config); } catch {
+      return NextResponse.json({ error: "Config must be valid JSON (API keys and settings)." }, { status: 400 });
+    }
+  }
+  await db.gatewayConfig.update({
+    where: { id },
+    data: { ...rest, ...(config !== undefined ? { config } : {}) },
+  });
+  logActivity({
+    action: "GATEWAY_SAVE",
+    actorEmail: admin.email,
+    detail: `${rest.name ?? id} · ${rest.enabled === true ? "enabled" : rest.enabled === false ? "disabled" : "updated"}`,
+  });
+  return NextResponse.json({ ok: true });
+}
+════════ /home/z/my-project/src/app/api/admin/affiliate/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { notify } from "@/lib/notify";
+import { logActivity } from "@/lib/activity";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const [rate, earnings, withdrawals] = await Promise.all([
+    import("@/lib/settings").then((m) => m.siteSettings()),
+    db.affiliateEarning.findMany({
+      orderBy: { createdAt: "desc" }, take: 60,
+      include: { user: { select: { email: true } }, from: { select: { email: true } } },
+    }),
+    db.withdrawal.findMany({
+      orderBy: { createdAt: "desc" }, take: 60,
+      include: { user: { select: { email: true } } },
+    }),
+  ]);
+  return NextResponse.json({ rate: rate.affiliateRate, earnings, withdrawals });
+}
+
+const schema = z.object({
+  action: z.enum(["setRate", "withdrawal"]),
+  rate: z.number().min(0).max(90).optional(),
+  id: z.string().optional(),
+  decision: z.enum(["approve", "reject", "complete"]).optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+
+  if (parsed.data.action === "setRate" && parsed.data.rate !== undefined) {
+    const { siteSettings } = await import("@/lib/settings");
+    const site = await siteSettings();
+    await import("@/lib/settings").then((m) => m.setSetting("site", { ...site, affiliateRate: parsed.data.rate }));
+    logActivity({
+      action: "SETTINGS_SAVE",
+      actorEmail: admin.email,
+      detail: `Affiliate commission rate set to ${parsed.data.rate}% (was ${site.affiliateRate}%)`,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (parsed.data.action === "withdrawal" && parsed.data.id && parsed.data.decision) {
+    const w = await db.withdrawal.findUnique({ where: { id: parsed.data.id } });
+    if (!w) return NextResponse.json({ error: "Withdrawal not found." }, { status: 404 });
+    const decision = parsed.data.decision;
+    const log = (action: Parameters<typeof logActivity>[0]["action"], title: string) =>
+      logActivity({ action, actorEmail: admin.email, userId: w.userId, detail: `$${w.amount.toFixed(2)} via ${w.method} to ${w.account} · ${title}` });
+    if (decision === "reject") {
+      // Return the money to cleared balance
+      await db.affiliateEarning.create({
+        data: { userId: w.userId, fromUserId: w.userId, amount: w.amount, status: "CLEARED" },
+      });
+      await db.withdrawal.update({ where: { id: w.id }, data: { status: "REJECTED", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal rejected", `Your $${w.amount.toFixed(2)} withdrawal was rejected and the amount was returned to your cleared balance.`, "/dashboard/affiliate");
+      log("WITHDRAW_REJECT", "rejected");
+    } else if (parsed.data.decision === "approve") {
+      await db.withdrawal.update({ where: { id: w.id }, data: { status: "PROCESSING", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal processing", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} is being processed. Payouts arrive within 3 business days.`, "/dashboard/affiliate");
+      log("WITHDRAW_APPROVE", "approved");
+    } else {
+      await db.withdrawal.update({ where: { id: w.id }, data: { status: "COMPLETED", reviewedAt: new Date() } });
+      await notify(w.userId, "WITHDRAWAL", "Withdrawal paid", `Your $${w.amount.toFixed(2)} withdrawal via ${w.method} has been sent to ${w.account}.`, "/dashboard/affiliate");
+      log("WITHDRAW_COMPLETE", "completed");
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+}
+════════ /home/z/my-project/src/app/api/admin/messages/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { notify } from "@/lib/notify";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const messages = await db.contactMessage.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+  return NextResponse.json({ messages });
+}
+
+const schema = z.object({
+  id: z.string().min(1),
+  action: z.enum(["reply", "close"]),
+  reply: z.string().max(4000).optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+
+  const msg = await db.contactMessage.findUnique({ where: { id: parsed.data.id } });
+  if (!msg) return NextResponse.json({ error: "Message not found." }, { status: 404 });
+
+  if (parsed.data.action === "reply") {
+    await db.contactMessage.update({
+      where: { id: msg.id },
+      data: { reply: parsed.data.reply || "", status: "REPLIED", repliedAt: new Date() },
+    });
+    if (msg.userId) {
+      await notify(msg.userId, "MESSAGE", "Support replied", `We replied to your "${msg.reason}" message. Check the answer from support.`, "/contact");
+    }
+    // Email the reply if SMTP is configured (gracefully skipped otherwise)
+    try {
+      const { getSetting, SMTP_DEFAULTS } = await import("@/lib/settings");
+      const smtp = await getSetting("smtp", SMTP_DEFAULTS);
+      if (smtp.host && smtp.user && smtp.pass && parsed.data.reply) {
+        const nodemailer = await import("nodemailer").catch(() => null);
+        if (nodemailer) {
+          const transport = nodemailer.createTransport({
+            host: smtp.host, port: smtp.port, secure: smtp.port === 465,
+            auth: { user: smtp.user, pass: smtp.pass },
+          });
+          await transport.sendMail({
+            from: smtp.from || smtp.user,
+            to: msg.email,
+            subject: `Re: ${msg.reason} — Audit Form support`,
+            text: parsed.data.reply,
+          });
+        }
+      }
+    } catch { /* SMTP errors are non-fatal; reply is stored in the panel */ }
+    return NextResponse.json({ ok: true });
+  }
+
+  await db.contactMessage.update({ where: { id: msg.id }, data: { status: "CLOSED" } });
+  return NextResponse.json({ ok: true });
+}
+════════ /home/z/my-project/src/app/api/admin/posts/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+import { logActivity } from "@/lib/activity";
+
+export async function GET(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const id = req.nextUrl.searchParams.get("id");
+  if (id) {
+    const post = await db.blogPost.findUnique({ where: { id } });
+    if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ post });
+  }
+  const posts = await db.blogPost.findMany({
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, slug: true, status: true, views: true, publishedAt: true, createdAt: true },
+  });
+  return NextResponse.json({ posts });
+}
+
+const schema = z.object({
+  id: z.string().optional(),
+  title: z.string().trim().min(4).max(180),
+  slug: z.string().trim().min(2).max(120).regex(/^[a-z0-9-]+$/),
+  excerpt: z.string().trim().max(400).optional().default(""),
+  content: z.string().min(10).max(200_000),
+  coverImage: z.string().max(400).optional().default(""),
+  metaTitle: z.string().trim().max(70).optional().default(""),
+  metaDescription: z.string().trim().max(160).optional().default(""),
+  status: z.enum(["DRAFT", "PUBLISHED"]),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid post data." }, { status: 400 });
+  }
+  const d = parsed.data;
+  const data = {
+    title: d.title, slug: d.slug, excerpt: d.excerpt || null, content: d.content,
+    coverImage: d.coverImage || null, metaTitle: d.metaTitle || null, metaDescription: d.metaDescription || null,
+    status: d.status,
+    publishedAt: d.status === "PUBLISHED" ? new Date() : null,
+  };
+
+  if (d.id) {
+    const existing = await db.blogPost.findUnique({ where: { id: d.id } });
+    if (!existing) return NextResponse.json({ error: "Post not found." }, { status: 404 });
+    await db.blogPost.update({
+      where: { id: d.id },
+      data: { ...data, publishedAt: existing.publishedAt ?? data.publishedAt },
+    });
+    if (d.status === "PUBLISHED") {
+      logActivity({ action: "BLOG_PUBLISH", actorEmail: admin.email, detail: `Updated post: ${d.title}` });
+    }
+    return NextResponse.json({ ok: true, id: d.id });
+  }
+  const post = await db.blogPost.create({ data: { ...data, authorId: admin.id } });
+  if (d.status === "PUBLISHED") {
+    logActivity({ action: "BLOG_PUBLISH", actorEmail: admin.email, detail: `Published post: ${d.title}` });
+  }
+  return NextResponse.json({ ok: true, id: post.id });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Post id required." }, { status: 400 });
+  await db.blogPost.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}
+════════ /home/z/my-project/src/app/api/admin/settings/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/admin-guard";
+import { setSetting, getSetting, SITE_DEFAULTS, AI_DEFAULTS, COSTS_DEFAULTS, GOOGLE_DEFAULTS, SMTP_DEFAULTS } from "@/lib/settings";
+import { AUDIT_PROMPT_DEFAULT, WRITER_PROMPT_DEFAULT, AFFILIATE_PROMPT_DEFAULT } from "@/lib/prompts";
+import { DIGEST_DEFAULTS } from "@/lib/monitor-digest";
+import { logActivity } from "@/lib/activity";
+
+export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const [site, ai, costs, google, smtp, prompts, indexnow, monitorLimitFree, digest] = await Promise.all([
+    getSetting("site", SITE_DEFAULTS),
+    getSetting("ai", AI_DEFAULTS),
+    getSetting("costs", COSTS_DEFAULTS),
+    getSetting("google", GOOGLE_DEFAULTS),
+    getSetting("smtp", SMTP_DEFAULTS),
+    getSetting("prompts", { audit: AUDIT_PROMPT_DEFAULT, writer: WRITER_PROMPT_DEFAULT, affiliate: AFFILIATE_PROMPT_DEFAULT }),
+    getSetting("indexnow", { key: "" }),
+    getSetting("monitorLimitFree", 1),
+    getSetting("monitorDigest", DIGEST_DEFAULTS),
+  ]);
+  return NextResponse.json({
+    site, ai, costs, google, smtp, prompts, indexnow,
+    monitor: { monitorLimitFree, digestEnabled: Boolean(digest.enabled), lastSentAt: digest.lastSentAt || "" },
+  });
+}
+
+const schema = z.object({
+  key: z.enum(["site", "ai", "costs", "google", "smtp", "prompts", "indexnow", "monitor"]),
+  value: z.record(z.string(), z.unknown()),
+});
+
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
+
+  const { key, value } = parsed.data;
+  if (key === "monitor") {
+    // The monitoring tab spans two stored settings; never clobber the digest cadence timestamp.
+    const limit = Number(value.monitorLimitFree);
+    if (!Number.isFinite(limit) || limit < 0 || limit > 50) {
+      return NextResponse.json({ error: "Free-plan monitor limit must be between 0 and 50." }, { status: 400 });
+    }
+    const digest = await getSetting("monitorDigest", DIGEST_DEFAULTS);
+    await setSetting("monitorLimitFree", Math.round(limit));
+    await setSetting("monitorDigest", { ...digest, enabled: Boolean(value.digestEnabled) });
+    logActivity({ action: "SETTINGS_SAVE", actorEmail: admin.email, detail: `Updated monitoring settings (free limit ${Math.round(limit)}, digest ${value.digestEnabled ? "on" : "off"})` });
+    return NextResponse.json({ ok: true });
+  }
+  await setSetting(key, value);
+  logActivity({ action: "SETTINGS_SAVE", actorEmail: admin.email, detail: `Updated ${key} settings` });
+  return NextResponse.json({ ok: true });
+}
+
+const testSchema = z.object({ openrouterKey: z.string().min(10) });
+
+export async function PUT(req: NextRequest) {
+  // Test the OpenRouter key with a minimal completion
+  const { error } = await requireAdmin();
+  if (error) return error;
+  const parsed = testSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Paste a key first." }, { status: 400 });
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${parsed.data.openrouterKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "openai/gpt-4o-mini", max_tokens: 10, messages: [{ role: "user", content: "Reply with the word OK" }] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return NextResponse.json({ ok: false, error: `Key rejected: HTTP ${res.status}` });
+    return NextResponse.json({ ok: true, message: "Key works." });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Request failed" });
+  }
+}
+════════ /home/z/my-project/src/app/api/admin/activity/route.ts ════════
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-guard";
+
+const GROUPS: Record<string, string[]> = {
+  auth: ["AUTH_LOGIN", "AUTH_LOGIN_FAILED", "AUTH_2FA_CHALLENGE", "AUTH_REGISTER", "AUTH_LOGOUT", "AUTH_PASSWORD_CHANGE", "AUTH_2FA_ENABLE", "AUTH_2FA_DISABLE", "ADMIN_LOGIN", "API_KEY_CREATE", "API_KEY_REVOKE"],
+  audits: ["AUDIT_START", "AUDIT_BATCH_START", "AUDIT_DELETE", "AUDIT_SHARE", "API_AUDIT_START"],
+  monitoring: ["WATCH_ADD", "WATCH_UPDATE", "WATCH_REMOVE", "WATCH_RUN", "DIGEST_SENT", "DIGEST_SKIP"],
+  tools: ["WRITER_START", "INDEXER_SUBMIT", "TOOL_SITECHECK"],
+  billing: ["CHECKOUT_SUBMIT", "STRIPE_VERIFY", "STRIPE_MISMATCH", "PAYPAL_VERIFY", "PAYPAL_MISMATCH", "SSLCZ_VERIFY", "SSLCZ_MISMATCH", "PAYMENT_APPROVE", "PAYMENT_REJECT"],
+  affiliate: ["WITHDRAW_REQUEST", "WITHDRAW_APPROVE", "WITHDRAW_REJECT", "WITHDRAW_COMPLETE"],
+  users: ["USER_CREDITS_ADJUST", "USER_SUSPEND", "USER_UNSUSPEND", "USER_DELETE", "USER_ROLE_CHANGE"],
+  admin: ["PLAN_SAVE", "GATEWAY_SAVE", "SETTINGS_SAVE", "BLOG_PUBLISH", "ADMIN_EXPORT", "SMTP_TEST"],
+};
+
+export async function GET(req: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  const group = req.nextUrl.searchParams.get("group") || "all";
+  const q = req.nextUrl.searchParams.get("q")?.trim().toLowerCase() || "";
+  const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
+  const perPage = 50;
+
+  const actions = GROUPS[group];
+  const where: Record<string, unknown> = {};
+  if (actions) where.action = { in: actions };
+  if (q) {
+    where.OR = [
+      { actorEmail: { contains: q } },
+      { detail: { contains: q } },
+      { ip: { contains: q } },
+    ];
+  }
+
+  const [rows, total] = await Promise.all([
+    db.activityLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * perPage,
+      take: perPage,
+    }),
+    db.activityLog.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    rows,
+    total,
+    page,
+    perPage,
+    pages: Math.max(1, Math.ceil(total / perPage)),
+  });
+}
+════════ /home/z/my-project/src/app/api/admin/digest/route.ts ════════
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/admin-guard";
+import { maybeSendDigests } from "@/lib/monitor-digest";
+import { logActivity } from "@/lib/activity";
+
+const schema = z.object({ action: z.literal("send") });
+
+/** Admin "send the monitoring digest now" button. Bypasses the 7-day cadence. */
+export async function POST(req: Request) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+
+  const result = await maybeSendDigests({ force: true });
+  logActivity({
+    action: result.sent > 0 ? "DIGEST_SENT" : "DIGEST_SKIP",
+    actorEmail: admin.email,
+    detail: result.sent > 0 ? `Manual digest run sent ${result.sent} email(s)` : `Manual digest run skipped: ${result.skipped}`,
+  });
+  return NextResponse.json({ ok: true, sent: result.sent, skipped: result.skipped });
+}
+════════ test-email ════════
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import nodemailer from "nodemailer";
+import { requireAdmin } from "@/lib/admin-guard";
+import { getSetting } from "@/lib/settings";
+import { logActivity } from "@/lib/activity";
+
+export const runtime = "nodejs";
+
+const schema = z.object({ to: z.string().trim().email() });
+
+/** Admin "send a test email" button: verifies the SMTP credentials above actually deliver. */
+export async function POST(req: NextRequest) {
+  const { user: admin, error } = await requireAdmin();
+  if (error) return error;
+
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+
+  const smtp = await getSetting("smtp", { host: "", port: 587, user: "", pass: "", from: "" });
+  if (!smtp.host || !smtp.user || !smtp.pass) {
+    return NextResponse.json({ ok: false, message: "SMTP is not configured yet. Fill in the host, user and password above and save first." });
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.port === 465,
+    auth: { user: smtp.user, pass: smtp.pass },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: smtp.from || smtp.user,
+      to: parsed.data.to,
+      subject: "Audit Form test email",
+      text: `This is a test email from your Audit Form SMTP settings. If you are reading this, outgoing email works.\n\nSent ${new Date().toISOString()}`,
+      html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1b2620">
+        <div style="border:1px solid #e2e8e4;border-radius:6px;padding:24px">
+          <p style="margin:0 0 12px;font-size:18px;font-weight:bold">SMTP is working</p>
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#5d6b64">This test email was sent from your Audit Form SMTP settings. Payment receipts, support replies and the weekly monitoring digest will all deliver through this connection.</p>
+          <p style="margin:0;font-size:12px;color:#93a39a">Sent ${new Date().toISOString()}</p>
+        </div>
+      </div>`,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "The mail server rejected the connection.";
+    logActivity({ action: "SMTP_TEST", actorEmail: admin.email, detail: `FAILED to ${parsed.data.to}: ${message.slice(0, 200)}` });
+    return NextResponse.json({ ok: false, message: `Send failed: ${message}` });
+  }
+
+  logActivity({ action: "SMTP_TEST", actorEmail: admin.email, detail: `Test email delivered to ${parsed.data.to}` });
+  return NextResponse.json({ ok: true, message: `Test email delivered to ${parsed.data.to}. Ask them to check spam if it does not appear.` });
+}
