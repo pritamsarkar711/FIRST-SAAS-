@@ -151,17 +151,20 @@ jobs:
           # through LiteSpeed PHP - it kills via posix_kill (no fork) and
           # self-deletes.
           echo "-- PLAN A: SFTP upload + HTTP trigger --"
-          DOCREL="/domains/brown-goshawk-979924.hostingersite.com/public_html"
+          HOSTPART=$(echo "$URL" | sed 's|https\?://||; s|/.*||')
+          DOCREL="domains/$HOSTPART/public_html"
           # NOTE: no -b batch file (it implies BatchMode=yes which disables
           # password auth). Pipe the commands and let sshpass answer the prompt.
-          if printf 'put scripts/deploy-laravel/emergency-kill.php %s/kill.php\nbye\n' "$DOCREL" | \
+          # Paths are RELATIVE (sftp starts in the account home).
+          if printf 'put scripts/deploy-laravel/emergency-kill.php %s/kill.php\nls -l %s/kill.php\nbye\n' "$DOCREL" "$DOCREL" | \
              sshpass -e sftp -oBatchMode=no -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                -o PreferredAuthentications=password -o PubkeyAuthentication=no \
                "$SSH_USER@$SSH_HOST" 2>&1; then
             echo "-- kill.php uploaded, triggering over HTTP --"
-            for i in 1 2 3 4 5; do
-              OUT=$(curl -s --max-time 25 "$URL/kill.php" || echo "")
-              echo "$OUT" | head -5
+            sleep 2
+            for i in 1 2 3 4 5 6; do
+              OUT=$(curl -s --max-time 25 "$URL/kill.php?x=$RANDOM" || echo "")
+              echo "$OUT" | head -6
               echo "$OUT" | grep -q "KILLED" && break
               sleep 8
             done
