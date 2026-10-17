@@ -139,26 +139,35 @@ jobs:
           VITE_APP_NAME="Audit Form"
           ENVFILE
 
-      - name: Create remote directory
+      - name: First SSH contact - kill legacy Node stack (frees process slots)
         run: |
           export SSHPASS="$SSH_PASSWORD"
           SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
-          sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'mkdir -p ~/laravel-app && echo SSH_OK'
-
-      - name: Kill legacy Node.js stack (frees process slots)
-        run: |
-          export SSHPASS="$SSH_PASSWORD"
-          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
-          # The old Node architecture left a crash-restarting supervisor that
-          # can exhaust the account process limit (bash: fork: Resource
-          # temporarily unavailable). Kill it hard, with retries.
-          for attempt in 1 2 3 4 5 6; do
+          # The old Node architecture left a crash-restarting supervisor whose
+          # zombie/child pile exhausts the account process limit (bash: fork:
+          # Resource temporarily unavailable). The very first SSH command must
+          # kill it - retry hard until a fork succeeds.
+          OK=0
+          for attempt in $(seq 1 14); do
             echo "kill attempt $attempt"
-            if sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" \
-              'pkill -9 -f auditform 2>/dev/null; pkill -9 -f run-app.sh 2>/dev/null; sleep 1; pkill -9 -f "server.js" 2>/dev/null; echo LEGACY_KILLED; ps -u "$USER" -o pid=,comm= 2>/dev/null | wc -l' ; then
+            if OUT=$(sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" \
+              'pkill -9 -f auditform; pkill -9 -f run-app.sh; pkill -9 -f "app/server.js"; echo LEGACY_KILLED' 2>&1); then
+              echo "$OUT" | tail -3
+              OK=1
               break
             fi
-            sleep 25
+            echo "$OUT" | tail -2
+            sleep 30
+          done
+          [ "$OK" = "1" ] || { echo "## Could not get a process slot via SSH (account process table exhausted)." >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          # give the reaper a moment, then verify SSH works again
+          sleep 8
+          for attempt in 1 2 3 4 5; do
+            if sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'mkdir -p ~/laravel-app && echo SSH_OK' 2>&1 | grep -q SSH_OK; then
+              echo "SSH operational again"
+              break
+            fi
+            sleep 20
           done
 
       - name: Rsync Laravel app to server
