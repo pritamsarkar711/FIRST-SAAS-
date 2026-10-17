@@ -145,6 +145,22 @@ jobs:
           SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
           sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" 'mkdir -p ~/laravel-app && echo SSH_OK'
 
+      - name: Kill legacy Node.js stack (frees process slots)
+        run: |
+          export SSHPASS="$SSH_PASSWORD"
+          SSHOPTS="ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          # The old Node architecture left a crash-restarting supervisor that
+          # can exhaust the account process limit (bash: fork: Resource
+          # temporarily unavailable). Kill it hard, with retries.
+          for attempt in 1 2 3 4 5 6; do
+            echo "kill attempt $attempt"
+            if sshpass -e $SSHOPTS "$SSH_USER@$SSH_HOST" \
+              'pkill -9 -f auditform 2>/dev/null; pkill -9 -f run-app.sh 2>/dev/null; sleep 1; pkill -9 -f "server.js" 2>/dev/null; echo LEGACY_KILLED; ps -u "$USER" -o pid=,comm= 2>/dev/null | wc -l' ; then
+              break
+            fi
+            sleep 25
+          done
+
       - name: Rsync Laravel app to server
         working-directory: laravel-app
         run: |
