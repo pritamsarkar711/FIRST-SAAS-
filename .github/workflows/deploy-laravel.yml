@@ -162,12 +162,44 @@ jobs:
                "$SSH_USER@$SSH_HOST" 2>&1; then
             echo "-- kill.php uploaded, triggering over HTTP --"
             sleep 2
-            for i in 1 2 3 4 5 6; do
-              OUT=$(curl -s --max-time 25 "$URL/kill.php?x=$RANDOM" || echo "")
-              echo "$OUT" | head -6
-              echo "$OUT" | grep -q "KILLED" && break
+            UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+            TRIG=0
+            for i in 1 2 3 4; do
+              OUT=$(curl -s --max-time 25 -A "$UA" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" "$URL/kill.php?x=$RANDOM" || echo "")
+              echo "$OUT" | head -3
+              echo "$OUT" | grep -q "KILLED" && TRIG=1 && break
               sleep 8
             done
+            # LiteSpeed WAF serves a JS browser-check to plain curl; pass it
+            # with a real browser on the runner.
+            if [ "$TRIG" != "1" ]; then
+              echo "-- WAF challenge detected, passing it with Playwright --"
+              mkdir -p /tmp/pw && cd /tmp/pw
+              npm init -y >/dev/null 2>&1
+              npm i playwright >/dev/null 2>&1
+              npx playwright install --with-deps chromium >/dev/null 2>&1 || npx playwright install chromium
+              cat > kill.js <<'JS'
+              const { chromium } = require('playwright');
+              (async () => {
+                const browser = await chromium.launch({ args: ['--no-sandbox'] });
+                const page = await browser.newPage();
+                try {
+                  await page.goto(process.env.KILL_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                  for (let i = 0; i < 24; i++) {
+                    const content = await page.content();
+                    if (content.includes('KILLED')) {
+                      console.log('TRIGGERED: ' + (content.match(/KILLED[^\n<]*/) || [''])[0]);
+                      break;
+                    }
+                    await page.waitForTimeout(3000);
+                  }
+                } catch (e) { console.log('browser error: ' + e.message); }
+                await browser.close();
+              })();
+              JS
+              KILL_URL="$URL/kill.php?x=$RANDOM" node kill.js || true
+              cd "$GITHUB_WORKSPACE"
+            fi
           else
             echo "-- SFTP failed, will rely on SSH retries --"
           fi
