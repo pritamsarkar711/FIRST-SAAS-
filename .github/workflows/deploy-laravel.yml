@@ -152,11 +152,11 @@ jobs:
           # self-deletes.
           echo "-- PLAN A: SFTP upload + HTTP trigger --"
           DOCREL="/domains/brown-goshawk-979924.hostingersite.com/public_html"
-          cat > /tmp/sftp-batch <<EOF
-          put scripts/deploy-laravel/emergency-kill.php $DOCREL/kill.php
-          EOF
-          if sshpass -e sftp -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-               -o PreferredAuthentications=password -o PubkeyAuthentication=no -b /tmp/sftp-batch \
+          # NOTE: no -b batch file (it implies BatchMode=yes which disables
+          # password auth). Pipe the commands and let sshpass answer the prompt.
+          if printf 'put scripts/deploy-laravel/emergency-kill.php %s/kill.php\nbye\n' "$DOCREL" | \
+             sshpass -e sftp -oBatchMode=no -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+               -o PreferredAuthentications=password -o PubkeyAuthentication=no \
                "$SSH_USER@$SSH_HOST" 2>&1; then
             echo "-- kill.php uploaded, triggering over HTTP --"
             for i in 1 2 3 4 5; do
