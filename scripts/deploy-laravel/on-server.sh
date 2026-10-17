@@ -15,19 +15,42 @@ echo "-- app dir: $(du -sh . 2>/dev/null | cut -f1), $(find vendor -name '*.php'
 
 # ---------- 1) locate a PHP >= 8.2 CLI ----------
 find_php() {
-  for c in /usr/local/bin/php /usr/bin/php /opt/alt/php84/root/usr/bin/php \
-           /opt/alt/php83/root/usr/bin/php /opt/alt/php82/root/usr/bin/php \
-           /opt/alt/php81/root/usr/bin/php php php82 php83 php84; do
-    if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then
-      V=$("$c" -r 'echo PHP_VERSION;' 2>/dev/null) || continue
-      case "$V" in
-        8.2*|8.3*|8.4*|8.5*|9.*) echo "$c"; return 0 ;;
-      esac
-    fi
+  # Discover every php binary on the server (LiteSpeed lsphp, CloudLinux alt-php...)
+  local CANDIDATES
+  CANDIDATES=$(
+    {
+      ls -1 /usr/local/lsws/lsphp*/bin/php 2>/dev/null
+      ls -1 /opt/alt/php*/usr/bin/php 2>/dev/null
+      ls -1 /opt/alt/php*/root/usr/bin/php 2>/dev/null
+      ls -1 /usr/local/bin/php /usr/bin/php /usr/local/php*/bin/php 2>/dev/null
+      command -v php php82 php83 php84 2>/dev/null
+    } | sort -u
+  )
+  [ -n "$CANDIDATES" ] || { echo "DISCOVERY: no php binaries found anywhere" >&2; return 1; }
+  echo "DISCOVERY: candidates ->" >&2
+  echo "$CANDIDATES" | while read -r c; do
+    echo "  $c = $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')" >&2
   done
+  # Pick the highest version >= 8.2
+  local BEST="" BESTV=""
+  for c in $CANDIDATES; do
+    V=$("$c" -r 'echo PHP_VERSION;' 2>/dev/null) || continue
+    case "$V" in
+      8.2*|8.3*|8.4*|8.5*|9.*)
+        if [ -z "$BESTV" ] || [ "$(printf '%s\n' "$BESTV" "$V" | sort -V | head -1)" != "$V" ]; then
+          BEST="$c"; BESTV="$V"
+        fi ;;
+    esac
+  done
+  [ -n "$BEST" ] && { echo "$BEST"; return 0; }
   return 1
 }
-PHP="$(find_php)" || { echo "FATAL: no PHP >= 8.2 CLI found on server"; exit 1; }
+PHP="$(find_php)"
+if [ -z "$PHP" ]; then
+  echo "FATAL: no PHP >= 8.2 CLI found on server."
+  echo "FATAL: raise the PHP version in hPanel (PHP Configuration) to 8.2/8.3 and re-run this deploy."
+  exit 1
+fi
 echo "-- PHP CLI: $PHP ($("$PHP" -r 'echo PHP_VERSION;'))"
 
 # ---------- 2) environment ----------
