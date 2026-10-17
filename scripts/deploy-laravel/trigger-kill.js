@@ -3,7 +3,7 @@
  * LiteSpeed WAF JS challenge). Used by deploy-laravel.yml.
  * Env: KILL_URL = full URL of kill.php on the live site.
  */
-const { chromium } = require('playwright');
+const { chromium } = require('/tmp/pw/node_modules/playwright');
 
 (async () => {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
