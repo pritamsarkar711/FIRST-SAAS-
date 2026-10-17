@@ -22,14 +22,22 @@ find_php() {
       ls -1 /usr/local/lsws/lsphp*/bin/php 2>/dev/null
       ls -1 /opt/alt/php*/usr/bin/php 2>/dev/null
       ls -1 /opt/alt/php*/root/usr/bin/php 2>/dev/null
+      ls -1 /opt/alt/alt-php*/usr/bin/php 2>/dev/null
+      ls -1 /opt/alt/alt-php*/root/usr/bin/php 2>/dev/null
+      ls -1 /opt/cpanel/ea-php*/root/usr/bin/php 2>/dev/null
       ls -1 /usr/local/bin/php /usr/bin/php /usr/local/php*/bin/php 2>/dev/null
       command -v php php82 php83 php84 2>/dev/null
+      # broad sweep as a last resort (bounded depth so it stays fast)
+      find /opt/alt /usr/local/lsws /usr/local -maxdepth 5 -type f -name php 2>/dev/null | head -40
     } | sort -u
   )
-  [ -n "$CANDIDATES" ] || { echo "DISCOVERY: no php binaries found anywhere" >&2; return 1; }
-  echo "DISCOVERY: candidates ->" >&2
+  echo "DISCOVERY: raw candidates:"
+  if [ -z "$CANDIDATES" ]; then
+    echo "  (none found)"
+    return 1
+  fi
   echo "$CANDIDATES" | while read -r c; do
-    echo "  $c = $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')" >&2
+    echo "  $c = $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
   done
   # Pick the highest version >= 8.2
   local BEST="" BESTV=""
@@ -42,11 +50,10 @@ find_php() {
         fi ;;
     esac
   done
-  [ -n "$BEST" ] && { echo "$BEST"; return 0; }
+  [ -n "$BEST" ] && { echo "DISCOVERY: selected $BEST ($BESTV)"; PHP="$BEST"; return 0; }
   return 1
 }
-PHP="$(find_php)"
-if [ -z "$PHP" ]; then
+if ! find_php || [ -z "${PHP:-}" ]; then
   echo "FATAL: no PHP >= 8.2 CLI found on server."
   echo "FATAL: raise the PHP version in hPanel (PHP Configuration) to 8.2/8.3 and re-run this deploy."
   exit 1
