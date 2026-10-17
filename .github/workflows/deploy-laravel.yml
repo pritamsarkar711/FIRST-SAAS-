@@ -31,6 +31,12 @@ on:
       - "laravel-app/**"
       - "scripts/deploy-laravel/**"
       - ".github/workflows/deploy-laravel.yml"
+  # Self-healing: the Hostinger account was wedged by the legacy Node
+  # supervisor (process/memory limits -> LiteSpeed PHP 503). Retry
+  # automatically every 30 minutes - the first run that gets through
+  # finishes the whole deployment; later runs are cheap no-ops.
+  schedule:
+    - cron: "9,39 * * * *"
 
 concurrency:
   group: laravel-deploy

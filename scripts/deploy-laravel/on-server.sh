@@ -81,9 +81,16 @@ pkill -f 'auditform/run-app.sh' 2>/dev/null || true
 pkill -f 'auditform/app/server.js' 2>/dev/null || true
 echo "-- legacy node stack stopped (if any)"
 
-# ---------- 4) database: clean schema + seed ----------
-echo "-- database: migrate:fresh (drops all tables, clean schema) --"
-"$PHP" artisan migrate:fresh --force --seed 2>&1 | tail -12 || { echo "FATAL: migrate failed"; exit 1; }
+# ---------- 4) database: clean schema + seed (FIRST RUN ONLY) ----------
+if [ ! -f storage/app/.installed ]; then
+  echo "-- database: first run - migrate:fresh (drops all tables, clean schema) --"
+  "$PHP" artisan migrate:fresh --force --seed 2>&1 | tail -12 || { echo "FATAL: migrate failed"; exit 1; }
+  mkdir -p storage/app && touch storage/app/.installed
+  echo "-- .installed marker written (future deploys only run migrate --force) --"
+else
+  echo "-- database: already installed - incremental migrate --"
+  "$PHP" artisan migrate --force --seed 2>&1 | tail -6 || { echo "FATAL: migrate failed"; exit 1; }
+fi
 
 # ---------- 5) caches ----------
 "$PHP" artisan config:cache >/dev/null 2>&1 && echo "-- config cached"
